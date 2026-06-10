@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="[LANGUAGE_CODE]" data-theme="light"><!-- Set lang to "zh-CN" or "en" based on user's language choice from Phase 0b -->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>论文精读：[PAPER_TITLE]</title>
+<style>
+/* ============================================================
+   PART 1: CSS Custom Properties (Light + Dark themes)
+   ============================================================ */
+:root {
+  --bg: #f8f9fa; --card: #ffffff; --text: #1e293b; --text2: #64748b;
+  --border: #e2e8f0; --code-bg: #f1f5f9;
+  --accent: #2563eb; --accent-lt: #dbeafe; --accent-dk: #1d4ed8;
+  --success: #16a34a; --success-lt: #dcfce7;
+  --warn: #f59e0b; --warn-lt: #fef3c7;
+  --danger: #dc2626; --danger-lt: #fee2e2;
+  --purple: #7c3aed; --purple-lt: #f3e8ff;
+  --cyan: #0891b2; --cyan-lt: #cffafe;
+  --shadow: 0 1px 2px rgba(0,0,0,.03);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+  --radius: 12px; --radius-sm: 8px;
+  --sans: -apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif;
+  --mono: 'JetBrains Mono','Fira Code','Cascadia Code',monospace;
+  /* Enhancement: optional Google Fonts (see design-system.md Part 1 for instructions) */
+}
+[data-theme="dark"] {
+  --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --text2: #94a3b8;
+  --border: #334155; --code-bg: #1e293b;
+  --accent: #60a5fa; --accent-lt: #1e3a5f; --accent-dk: #3b82f6;
+  --success: #4ade80; --success-lt: #14532d;
+  --warn: #fbbf24; --warn-lt: #422006;
+  --danger: #f87171; --danger-lt: #450a0a;
+  --purple: #a78bfa; --purple-lt: #2e1065;
+  --cyan: #22d3ee; --cyan-lt: #083344;
+  --shadow: 0 1px 3px rgba(0,0,0,.25);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.4);
+}
+
+/* ============================================================
+   PART 2: Global Reset & Layout
+   ============================================================ */
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.72;font-size:15px;transition:background .3s,color .3s}
+
+/* Reading progress bar */
+#progress-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--cyan));z-index:200;transition:width .1s linear}
+
+/* Top navigation bar */
+.top-bar{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.88);border-bottom:1px solid var(--border);padding:8px 0;box-shadow:var(--shadow);backdrop-filter:blur(8px)}
+[data-theme="dark"] .top-bar{background:rgba(15,23,42,.88)}
+.top-inner{max-width:1280px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.top-badge{background:var(--accent);color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
+.top-meta{color:var(--text2);font-size:13px}
+.top-meta a{color:var(--accent);text-decoration:none}
+.top-spacer{flex:1}
+.top-btn{background:var(--code-bg);border:1px solid var(--border);padding:5px 12px;border-radius:6px;color:var(--text);font-size:12px;cursor:pointer;transition:all .2s;font-family:var(--sans)}
+.top-btn:hover{background:var(--accent-lt);color:var(--accent)}
+
+/* Main layout */
+.container{max-width:1280px;margin:0 auto;padding:24px;display:flex;gap:32px}
+.content{flex:1;min-width:0}
+
+/* Sidebar navigation */
+.sidebar{width:260px;flex-shrink:0;position:sticky;top:68px;height:calc(100vh - 90px);overflow-y:auto;padding-right:6px;font-size:13px}
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.sidebar h3{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:8px}
+.sidebar details{margin-bottom:4px}
+.sidebar summary{color:var(--text);font-weight:500;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:13px;transition:background .15s}
+.sidebar summary:hover{background:var(--code-bg)}
+.sidebar a{display:block;padding:3px 8px 3px 22px;color:var(--text2);text-decoration:none;border-radius:4px;font-size:12.5px;border-left:2px solid transparent;transition:all .15s}
+.sidebar a:hover,.sidebar a.active{color:var(--accent);background:var(--accent-lt);border-left-color:var(--accent)}
+
+/* Mobile sidebar toggle */
+#sidebar-toggle{display:none;position:fixed;bottom:76px;right:28px;width:40px;height:40px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--text);font-size:18px;cursor:pointer;box-shadow:var(--shadow-md);z-index:160;font-family:var(--sans);transition:all .2s}
+#sidebar-toggle:hover{background:var(--accent-lt);color:var(--accent)}
+@media(max-width:960px){
+  #sidebar-toggle{display:flex;align-items:center;justify-content:center}
+  .sidebar.active{display:block;position:fixed;top:0;left:0;width:280px;height:100vh;z-index:180;background:var(--card);padding:20px 16px;box-shadow:var(--shadow-md);border-right:1px solid var(--border)}
+  .sidebar-overlay{display:none}
+  .sidebar-overlay.active{display:block;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);z-index:170}
+}
+
+/* Back to top button */
+#btt{position:fixed;bottom:28px;right:28px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);opacity:0;transform:translateY(20px);transition:all .3s;z-index:150;font-family:var(--sans)}
+#btt.show{opacity:1;transform:translateY(0)}
+#btt:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+
+/* ============================================================
+   PART 3: Component Styles
+   ============================================================ */
+
+/* Section cards */
+.section{background:var(--card);border-radius:var(--radius);padding:26px 30px;margin-bottom:20px;border:1px solid var(--border);box-shadow:var(--shadow);transition:background .3s,box-shadow .3s,transform .3s}
+.section:target{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-lt);animation:section-flash 1.6s ease-out}
+@keyframes section-flash{0%{background:var(--accent-lt)}100%{background:var(--card)}}
+
+/* Headings */
+h1{font-size:28px;line-height:1.3;margin-bottom:6px}
+h1 .sub{font-size:15px;font-weight:400;color:var(--text2);display:block;margin-top:4px}
+h2{font-size:21px;margin-bottom:14px;padding-bottom:7px;border-bottom:2px solid var(--accent-lt);display:flex;align-items:center;gap:10px;scroll-margin-top:80px}
+h2 .num{background:var(--accent);color:#fff;width:27px;height:27px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+h2 .anchor{opacity:0;font-size:16px;color:var(--text2);text-decoration:none;transition:opacity .2s;margin-left:auto;padding:0 4px}
+h2:hover .anchor{opacity:1}
+h2 .anchor:hover{color:var(--accent)}
+h3{font-size:17px;margin:18px 0 8px;color:var(--text)}
+h4{font-size:14.5px;margin:14px 0 6px;color:var(--text2)}
+p,li{margin-bottom:9px}
+ul,ol{padding-left:20px}
+
+/* Callout boxes — 6 types */
+.callout{padding:13px 17px;border-radius:var(--radius-sm);margin:12px 0;border-left:4px solid;font-size:14px}
+.callout>strong{display:block;margin-bottom:3px;font-size:14px}
+.callout.info{background:var(--accent-lt);border-color:var(--accent)}
+.callout.warn{background:var(--warn-lt);border-color:var(--warn)}
+.callout.success{background:var(--success-lt);border-color:var(--success)}
+.callout.danger{background:var(--danger-lt);border-color:var(--danger)}
+.callout.purple{background:var(--purple-lt);border-color:var(--purple)}
+.callout.cyan{background:var(--cyan-lt);border-color:var(--cyan)}
+
+/* Tags — 6 color variants */
+.tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11.5px;font-weight:500}
+.tag.bl{background:var(--accent-lt);color:var(--accent)}
+.tag.gr{background:var(--success-lt);color:var(--success)}
+.tag.or{background:var(--warn-lt);color:var(--warn)}
+.tag.rd{background:var(--danger-lt);color:var(--danger)}
+.tag.pu{background:var(--purple-lt);color:var(--purple)}
+.tag.cy{background:var(--cyan-lt);color:var(--cyan)}
+
+/* Grid cards */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:12px 0}
+.mini-card{background:var(--code-bg);padding:13px;border-radius:var(--radius-sm);border:1px solid var(--border);transition:transform .2s,box-shadow .2s}
+.mini-card strong{display:block;margin-bottom:3px;font-size:13.5px}
+.mini-card p{font-size:12.5px;margin:0;color:var(--text2)}
+.mini-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+
+/* Principle boxes */
+.pbox{display:flex;gap:10px;align-items:flex-start;padding:12px;margin:8px 0;background:var(--code-bg);border-radius:var(--radius-sm);border-left:3px solid var(--accent);transition:transform .15s,box-shadow .15s}
+.pbox:hover{transform:translateX(3px)}
+.pbox .pn{background:var(--accent);color:#fff;width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.pbox .pb{flex:1}.pbox .pb strong{display:block}
+
+/* Tables */
+.table-wrap{position:relative;margin:12px 0}
+.table-wrap::after{content:'';position:absolute;top:0;right:0;width:32px;height:100%;background:linear-gradient(90deg,transparent,var(--card));pointer-events:none;opacity:0;transition:opacity .3s}
+.table-wrap.is-overflow::after{opacity:1}
+table{width:100%;border-collapse:collapse;margin:0;font-size:13.5px}
+th,td{padding:9px 12px;border:1px solid var(--border);text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600;font-size:12.5px}
+tr:nth-child(even) td{background:var(--code-bg)}
+[data-theme="dark"] tr:nth-child(even) td{background:rgba(255,255,255,.03)}
+
+/* Code blocks */
+code{background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:12.5px;font-family:var(--mono);border:1px solid var(--border)}
+pre{background:#0f172a;color:#e2e8f0;padding:15px 18px;border-radius:var(--radius-sm);overflow-x:auto;font-size:12.5px;line-height:1.55;margin:12px 0;font-family:var(--mono);border:1px solid var(--border)}
+pre .c{color:#94a3b8}pre .kw{color:#c084fc}pre .s{color:#34d399}pre .fn{color:#60a5fa}pre .num{color:#fb923c}
+
+/* Trace steps (numbered flow) */
+.trace{margin:10px 0;counter-reset:step}
+.trace li{list-style:none;padding:8px 0 8px 34px;position:relative;border-left:2px solid var(--border);margin-left:12px}
+.trace li::before{counter-increment:step;content:counter(step);position:absolute;left:-13px;top:8px;width:24px;height:24px;background:var(--accent);color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:11px;font-weight:700}
+
+/* Running example callout */
+.run-ex{border:2px dashed var(--accent);border-radius:var(--radius-sm);padding:12px 16px;margin:14px 0;background:var(--accent-lt);font-size:13.5px}
+.run-ex strong{color:var(--accent-dk)}
+
+/* Metadata row */
+.meta-row{display:flex;flex-wrap:wrap;gap:18px;margin:12px 0 18px;padding:12px 16px;background:var(--code-bg);border-radius:var(--radius-sm);font-size:13px}
+.meta-row span{color:var(--text2)}
+.meta-row strong{color:var(--text)}
+
+/* Summary grid (metrics dashboard) */
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:12px 0}
+.summary-grid .sg-item{background:var(--code-bg);padding:12px;border-radius:var(--radius-sm);text-align:center;border:1px solid var(--border);transition:transform .2s}
+.summary-grid .sg-item:hover{transform:translateY(-3px)}
+.sg-item .sg-val{font-size:24px;font-weight:800;color:var(--accent)}
+.sg-item .sg-lbl{font-size:11.5px;color:var(--text2);margin-top:2px}
+
+/* Source file references */
+.fref{font-size:11.5px;color:var(--text2);font-family:var(--mono)}
+.src-link{font-size:11px;color:var(--accent);font-family:var(--mono);cursor:default;white-space:nowrap}
+
+/* Equation/mapping pair */
+.eq-pair{display:flex;align-items:center;gap:8px;justify-content:center;font-size:15px;margin:8px 0;flex-wrap:wrap}
+.eq-pair .eq-box{background:var(--accent-lt);padding:4px 10px;border-radius:4px;font-weight:500;font-size:13px}
+.eq-pair .eq-arrow{color:var(--accent);font-weight:700}
+
+/* Mindmap visualization */
+.mindmap{padding:20px;text-align:center;background:#0f172a;border-radius:10px;margin:12px 0}
+.mindmap .center-node{display:inline-block;background:var(--accent);color:#fff;padding:10px 22px;border-radius:8px;font-weight:700;margin-bottom:14px}
+.mindmap .children{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.mindmap .child{background:#1e293b;color:#e2e8f0;padding:6px 12px;border-radius:6px;font-size:12.5px;border:1px solid #334155}
+
+/* Reading time badge */
+.reading-time{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--code-bg);border-radius:12px;font-size:12px;color:var(--text2);border:1px solid var(--border)}
+
+/* Figure container (embedded base64 images from Phase 1.2) */
+figure.paper-fig{margin:20px 0;text-align:center;break-inside:avoid}
+figure.paper-fig img{max-width:100%;max-height:500px;width:auto;height:auto;
+  border-radius:var(--radius-sm);border:1px solid var(--border);box-shadow:var(--shadow);
+  cursor:zoom-in;transition:box-shadow .2s,transform .2s}
+figure.paper-fig img:hover{box-shadow:var(--shadow-md);transform:scale(1.01)}
+figure.paper-fig figcaption{font-size:12.5px;color:var(--text2);margin-top:8px;
+  font-style:italic}
+[data-theme="dark"] figure.paper-fig img{border-color:#334155}
+.fig-ref{font-size:13px;color:var(--text2);padding:4px 0}
+.fig-ref a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.fig-ref a:hover{color:var(--accent-dk)}
+
+/* ============================================================
+   PART 4: Enhancement Styles (from frontend-design aesthetics)
+   ============================================================ */
+
+/* Entrance animation — sections fade in on scroll */
+.section-entrance{opacity:0;transform:translateY(30px);transition:opacity .6s cubic-bezier(0.16,1,0.3,1),transform .6s cubic-bezier(0.16,1,0.3,1)}
+.section-entrance.revealed{opacity:1;transform:translateY(0)}
+
+/* Hover lift — cards float up on hover */
+.card-lift{transition:transform .25s ease,box-shadow .25s ease}
+.card-lift:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+
+/* Accent gradient bar (use on h2 bottom-border or progress-bar) */
+.accent-gradient{background:linear-gradient(90deg,var(--accent),var(--cyan))}
+
+/* Subtle dot-grid background texture (pure CSS, no image dependency) */
+.bg-texture{background-image:radial-gradient(circle,var(--border) 1px,transparent 1px);background-size:20px 20px}
+
+/* Image lightbox — click-to-zoom overlay (zero-dependency) */
+.lightbox{display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,.85);z-index:9999;justify-content:center;align-items:center;
+  flex-direction:column;cursor:zoom-out}
+.lightbox.active{display:flex}
+.lightbox img{max-width:92vw;max-height:85vh;object-fit:contain;
+  border-radius:6px;box-shadow:0 4px 32px rgba(0,0,0,.5);background:#fff}
+.lightbox .lb-caption{color:#ccc;font-size:13px;margin-top:12px;
+  max-width:80vw;text-align:center}
+.lightbox .lb-close{position:fixed;top:16px;right:24px;color:#fff;
+  font-size:36px;cursor:pointer;line-height:1;z-index:10000;
+  opacity:.7;transition:opacity .2s;background:none;border:none;font-family:var(--sans)}
+.lightbox .lb-close:hover{opacity:1}
+.lightbox .lb-nav{position:fixed;top:50%;transform:translateY(-50%);color:#fff;
+  font-size:32px;cursor:pointer;opacity:.5;transition:opacity .2s;
+  background:none;border:none;padding:16px;z-index:10000}
+.lightbox .lb-nav:hover{opacity:1}
+.lightbox .lb-prev{left:16px}
+.lightbox .lb-next{right:16px}
+
+/* ============================================================
+   PART 5: Responsive & Print
+   ============================================================ */
+@media(max-width:960px){
+  .sidebar{display:none}
+  .container{padding:14px}
+  .section{padding:18px 16px}
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  .table-wrap{overflow-x:auto}
+  .table-wrap table{white-space:nowrap}
+  .top-meta strong{display:none}
+}
+@media print{
+  .sidebar,#btt,.top-bar,#progress-bar{display:none}
+  .container{display:block;padding:0}
+  .section{box-shadow:none;border:1px solid #ddd;break-inside:avoid;margin-bottom:12px;padding:16px 20px;opacity:1!important;transform:none!important}
+  body{font-size:12px;color:#000;background:#fff}
+  .section-entrance{opacity:1!important;transform:none!important}
+  figure.paper-fig img{max-height:300px;box-shadow:none;border:1px solid #ccc}
+  .lightbox{display:none!important}
+}
+
+/* KaTeX fallback — when CDN is unreachable, show formulas in monospace */
+.formula-inline{padding:1px 5px;background:var(--code-bg);border-radius:4px;font-size:13px;font-family:var(--mono);white-space:nowrap}
+.formula-display{display:block;text-align:center;padding:12px 16px;margin:10px 0;background:var(--code-bg);border-radius:var(--radius-sm);font-size:14px;font-family:var(--mono);overflow-x:auto;border:1px solid var(--border)}
+.formula-array{display:block;text-align:center;padding:8px 16px;margin:8px 0;font-size:14px;font-family:var(--mono);overflow-x:auto}
+/* Hide fallback when KaTeX is active */
+.katex ~ .formula-inline,.katex ~ .formula-display,.katex ~ .formula-array{display:none}
+</style>
+
+<!-- KaTeX for formula rendering (optional: remove if paper has no math) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"
+  onload="renderMathInElement(document.body,{
+    delimiters:[
+      {left:'$$',right:'$$',display:true},
+      {left:'$',right:'$',display:false}
+    ],
+    throwOnError:false
+  })"></script>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<!-- ====== TOP BAR ====== -->
+<div class="top-bar">
+<div class="top-inner">
+<span class="top-badge">论文精读</span>
+<span class="top-meta"><strong>[PAPER_TITLE]</strong> · [PAPER_VENUE] · [PAPER_DATE]</span>
+<span class="top-spacer"></span>
+<button class="top-btn" onclick="toggleTheme()" title="切换暗色/亮色模式">🌓 主题</button>
+<button class="top-btn" onclick="window.print()" title="打印">🖨 打印</button>
+</div></div>
+
+<!-- ====== MAIN LAYOUT ====== -->
+<div class="container">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+<h3>📑 目录导航</h3>
+
+<!-- SECTION: SIDEBAR_OVERVIEW -->
+<details open><summary>概览</summary>
+<a href="#intro">论文信息</a>
+<a href="#tldr">TL;DR 摘要</a>
+<!-- Add or remove links based on paper content -->
+</details>
+<!-- /SECTION: SIDEBAR_OVERVIEW -->
+
+<!-- SECTION: SIDEBAR_ANALYSIS -->
+<details open><summary>核心分析</summary>
+<a href="#values">核心价值</a>
+<a href="#principles">设计原则</a>
+<a href="#architecture">架构总览</a>
+<a href="#mechanisms">核心机制</a>
+<a href="#figures">图示速览（可选）</a>
+<!-- Adjust links based on what the paper actually covers -->
+</details>
+<!-- /SECTION: SIDEBAR_ANALYSIS -->
+
+<!-- SECTION: SIDEBAR_EXTENDED -->
+<details open><summary>扩展讨论</summary>
+<a href="#comparison">对比分析</a>
+<a href="#discussion">讨论与权衡</a>
+<a href="#future">未来方向</a>
+<!-- Adjust links based on paper content -->
+</details>
+<!-- /SECTION: SIDEBAR_EXTENDED -->
+
+<!-- SECTION: SIDEBAR_REFERENCE -->
+<details open><summary>参考与总结</summary>
+<a href="#methodology">方法论</a>
+<a href="#takeaways">核心启示</a>
+<!-- Adjust links based on paper content -->
+</details>
+<!-- /SECTION: SIDEBAR_REFERENCE -->
+
+</aside>
+
+<!-- Sidebar overlay for mobile -->
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- MAIN CONTENT -->
+<div class="content">
+
+<!-- ================================================================
+     FORMULA SUPPORT (KaTeX auto-render)
+
+     KaTeX is loaded from CDN in <head>. The JS auto-render script
+     scans the page and converts $...$ and $$...$$ to rendered math.
+
+     Usage examples:
+       - Inline:  $E = mc^2$  or  $f(x) = \sum_{i=1}^{n} x_i$
+       - Display: $$ \mathcal{L}(\theta) = -\frac{1}{N}\sum_{i=1}^{N} \log p(y_i|x_i;\theta) $$
+       - Array:   $$ \begin{bmatrix} a & b \\ c & d \end{bmatrix} $$
+
+     When the CDN is unreachable, .formula-inline and .formula-display
+     fallback styles show the LaTeX source in monospace.
+
+     To create a standalone formula section, use:
+       <div class="section" id="math">
+         <h2><span class="num">?</span> 核心公式</h2>
+         $$display_math$$
+         <p>解释文字 $inline_math$</p>
+       </div>
+     ================================================================ -->
+
+<!-- ================================================================
+     SECTION: INTRO — Paper title, metadata, core thesis
+     ================================================================ -->
+<!-- SECTION: INTRO — Paper title, metadata, core thesis -->
+<div class="section" id="intro">
+<!-- Optional: add class="section-entrance" to enable scroll animation -->
+
+<!-- SECTION: INTRO_HEADING -->
+<h1>[PAPER_TITLE]
+<span class="sub">[PAPER_SUBTITLE_CN — Chinese one-line summary of the paper's contribution]</span>
+</h1>
+<!-- /SECTION: INTRO_HEADING -->
+
+<!-- SECTION: INTRO_META -->
+<div class="meta-row">
+<span>📄 <strong>作者</strong> [AUTHORS]</span>
+<span>🏫 <strong>机构</strong> [INSTITUTIONS]</span>
+<span>🔬 <strong>方法</strong> [METHOD_SUMMARY]</span>
+<span>🎯 <strong>核心</strong> [KEY_INSIGHT]</span>
+</div>
+<!-- /SECTION: INTRO_META -->
+
+<!-- SECTION: INTRO_OVERVIEW -->
+<p>[OPENING_PARAGRAPH — 2-4 sentences summarizing what the paper does and its context.]</p>
+
+<div class="callout info">
+  <strong>📌 核心论点</strong>
+  <p>[CORE_THESIS — the paper's main argument in 1-3 sentences.]</p>
+</div>
+<!-- /SECTION: INTRO_OVERVIEW -->
+</div>
+<!-- /SECTION: INTRO -->
+
+<!-- ================================================================
+     SECTION: TL;DR — Executive summary with metrics dashboard
+     ================================================================ -->
+<div class="section" id="tldr">
+
+<!-- SECTION: TLDR_HEADING -->
+<h2><span class="num">📋</span> Executive Summary — 论文精要<a href="#tldr" class="anchor">#</a></h2>
+<!-- /SECTION: TLDR_HEADING -->
+
+<!-- SECTION: TLDR_METRICS -->
+<div class="summary-grid">
+  <!-- Repeat .sg-item for each key metric (aim for 6-16 items) -->
+  <div class="sg-item"><div class="sg-val">[VALUE]</div><div class="sg-lbl">[LABEL_CN]</div></div>
+  <!-- ... more metrics ... -->
+</div>
+<!-- /SECTION: TLDR_METRICS -->
+
+<!-- SECTION: TLDR_ONELINER -->
+<p style="margin-top:10px"><strong>一句话总结：</strong>[ONE_SENTENCE_SUMMARY_CN]</p>
+<!-- /SECTION: TLDR_ONELINER -->
+
+</div>
+<!-- /SECTION: TL;DR -->
+
+<!-- ================================================================
+     SECTION: CONTENT — Paper-specific analysis sections
+     Each section should map to one content pattern from Phase 3.
+     Add/remove sections based on what the paper actually contains.
+     ================================================================ -->
+
+<!-- SECTION: VALUES (use grid-2 mini-cards for 3+ values/philosophies) -->
+<div class="section" id="values">
+<h2><span class="num">1</span> [SECTION_TITLE_CN]<a href="#values" class="anchor">#</a></h2>
+<p>[SECTION_LEAD_IN]</p>
+<div class="grid-2">
+  <div class="mini-card card-lift">
+    <strong>[VALUE_NAME]</strong>
+    <p>[VALUE_DESCRIPTION_CN]</p>
+  </div>
+  <!-- ... more cards ... -->
+</div>
+<!-- Optional callout after values -->
+</div>
+<!-- /SECTION: VALUES -->
+
+<!-- SECTION: PRINCIPLES (use pbox numbered list for 5+ principles with tags) -->
+<div class="section" id="principles">
+<h2><span class="num">2</span> [SECTION_TITLE_CN]<a href="#principles" class="anchor">#</a></h2>
+<p>[SECTION_LEAD_IN]</p>
+<div class="pbox">
+  <div class="pn">1</div>
+  <div class="pb">
+    <strong>[PRINCIPLE_NAME]</strong>
+    <span class="tag bl">[TAG]</span> <span class="tag gr">[TAG]</span>
+    <p style="margin:3px 0 0;font-size:12.5px;color:var(--text2)">[PRINCIPLE_EXPLANATION_CN]</p>
+  </div>
+</div>
+<!-- ... more pbox items ... -->
+</div>
+<!-- /SECTION: PRINCIPLES -->
+
+<!-- SECTION: ARCHITECTURE (use tables for design questions, layers, components) -->
+<div class="section" id="architecture">
+<h2><span class="num">3</span> [SECTION_TITLE_CN]<a href="#architecture" class="anchor">#</a></h2>
+
+<h3>[SUB_SECTION_TITLE]</h3>
+<table>
+  <tr><th style="width:18%">[COL1]</th><th style="width:45%">[COL2]</th><th style="width:37%">[COL3]</th></tr>
+  <tr><td><strong>[ROW_LABEL]</strong></td><td>[DESCRIPTION]</td><td>[ALTERNATIVE_OR_NOTE]</td></tr>
+  <!-- ... more rows ... -->
+</table>
+
+<h3>[SUB_SECTION_TITLE_2]</h3>
+<table>
+  <tr><th style="width:12%">[COL1]</th><th style="width:18%">[COL2]</th><th>[COL3]</th><th style="width:22%">[COL4]</th></tr>
+  <tr><td>[CELL]</td><td><strong>[CELL]</strong></td><td>[CELL]</td><td><code>[CELL]</code></td></tr>
+  <!-- ... more rows ... -->
+</table>
+
+<!-- Optional callout for architectural clarifications -->
+</div>
+<!-- /SECTION: ARCHITECTURE -->
+
+<!-- SECTION: MECHANISMS (use tables + code blocks for detailed mechanisms) -->
+<div class="section" id="mechanisms">
+<h2><span class="num">4</span> [SECTION_TITLE_CN]<a href="#mechanisms" class="anchor">#</a></h2>
+<p>[SECTION_LEAD_IN]</p>
+
+<h3>[SUB_SECTION_TITLE]</h3>
+<table>
+  <tr><th>[COL1]</th><th>[COL2]</th><th style="width:38%">[COL3]</th><th>[COL4]</th></tr>
+  <tr><td>[CELL]</td><td><strong>[CELL]</strong></td><td>[CELL]</td><td><span class="tag gr">[TAG]</span></td></tr>
+  <!-- ... more rows ... -->
+</table>
+
+<!-- Code block example -->
+<pre>
+<span class="c">// [COMMENT_CN]</span>
+<span class="kw">while</span> (<span class="kw">not</span> stopped) {
+    <span class="c">// [step description]</span>
+    <span class="fn">functionCall</span>(args);
+}</pre>
+
+<!-- Callout for mechanism rationale -->
+<div class="callout info">
+  <strong>[CALLOUT_TITLE]</strong>
+  <p>[CALLOUT_BODY_CN]</p>
+</div>
+
+<!-- Optional trace example -->
+<ol class="trace">
+  <li><strong>[STEP_NAME]</strong> → [subsystem] → [outcome] <span class="fref">[source.ts]</span></li>
+  <!-- ... more steps ... -->
+</ol>
+</div>
+<!-- /SECTION: MECHANISMS -->
+
+<!-- SECTION: FIGURES (optional gallery — inline FIRST, gallery SECOND)
+
+  ⚠️  IMPORTANT: Each figure belongs in its MOST CONTEXTUALLY RELEVANT
+      section (architecture diagram → architecture section, comparison
+      chart → comparison section). Embed <figure class="paper-fig"> blocks
+      inline in those sections FIRST.
+
+      This FIGURES section is an OPTIONAL gallery for multi-figure papers
+      that benefit from a consolidated view. If used:
+        - Keep only figures not already shown inline, OR
+        - Use smaller thumbnails with cross-reference links back to the
+          inline placement (e.g., "详见图 3 在对比分析章节")
+        - Do NOT duplicate all figures here — that wastes base64 data and
+          confuses readers
+
+  Template HTML below is a placeholder example. Delete or adapt as needed.
+-->
+<div class="section" id="figures">
+<h2><span class="num">📋</span> 核心图示速览<a href="#figures" class="anchor">#</a></h2>
+<p>[OPTIONAL — 1-2 sentences summarizing what the paper's figures show collectively]</p>
+
+<!-- Example: single figure in gallery (only if not already shown inline) -->
+<figure class="paper-fig">
+  <img src="data:image/png;base64,[BASE64_DATA]"
+       alt="[ALT_DESCRIPTION_CN]"
+       loading="lazy"
+       data-caption="图：[FIGURE_CAPTION_CN]（原文 Figure N）">
+  <figcaption>图：[FIGURE_CAPTION_CN]（原文 Figure N）</figcaption>
+</figure>
+
+<!-- Example: cross-reference to a figure shown inline in another section -->
+<p class="fig-ref">📊 <em>参见 <a href="#architecture">架构分析章节</a></em></p>
+
+<div class="callout cyan">
+  <strong>💡 图示说明</strong>
+  <p>[EXPLANATORY_NOTE — what these diagrams reveal collectively about the paper's contribution]</p>
+</div>
+</div>
+<!-- /SECTION: FIGURES -->
+
+<!-- SECTION: COMPARISON (use detailed comparison table) -->
+<div class="section" id="comparison">
+<h2><span class="num">5</span> [SECTION_TITLE_CN]<a href="#comparison" class="anchor">#</a></h2>
+<p>[SECTION_LEAD_IN]</p>
+<table>
+  <tr><th style="width:12%">[DIMENSION]</th><th style="width:44%">[SYSTEM_A]</th><th style="width:44%">[SYSTEM_B]</th></tr>
+  <tr><td><strong>[DIM1]</strong></td><td>[DESCRIPTION]</td><td>[DESCRIPTION]</td></tr>
+  <!-- ... 4-8 rows ... -->
+</table>
+<div class="callout info">
+  <strong>🔗 [KEY_FINDING_TITLE]</strong>
+  <p>[KEY_FINDING_DESCRIPTION]</p>
+</div>
+</div>
+<!-- /SECTION: COMPARISON -->
+
+<!-- SECTION: DISCUSSION (tension matrix + trade-off analysis) -->
+<div class="section" id="discussion">
+<h2><span class="num">6</span> [SECTION_TITLE_CN]<a href="#discussion" class="anchor">#</a></h2>
+
+<h3>[TENSION_TABLE_TITLE]</h3>
+<table>
+  <tr><th>[COL1]</th><th>[COL2]</th><th>[COL3]</th></tr>
+  <tr><td><strong>[PAIR]</strong></td><td>[TENSION_DESCRIPTION]</td><td>[EVIDENCE]</td></tr>
+  <!-- ... 3-6 rows ... -->
+</table>
+
+<!-- Trade-off analysis (reuse pbox without numbers) -->
+<div class="pbox"><div class="pb">
+  <strong>⚖️ [TRADEOFF_TITLE]</strong>
+  <p style="margin:3px 0 0;font-size:12.5px;color:var(--text2)">[TRADEOFF_DESCRIPTION_CN]</p>
+</div></div>
+
+<!-- Empirical evidence list -->
+<h3>[EVIDENCE_TITLE]</h3>
+<div class="callout warn">
+  <strong>🔮 [PREDICTION_TITLE]</strong>
+  <p>[PREDICTION_DESCRIPTION_CN]</p>
+</div>
+<ul>
+  <li><strong>[STUDY_NAME]</strong>（[SAMPLE_SIZE], [AUTHORS], [YEAR]）：[FINDINGS]</li>
+  <!-- ... more evidence ... -->
+</ul>
+</div>
+<!-- /SECTION: DISCUSSION -->
+
+<!-- SECTION: FUTURE (grid-2 mini-cards for future directions) -->
+<div class="section" id="future">
+<h2><span class="num">7</span> [SECTION_TITLE_CN]<a href="#future" class="anchor">#</a></h2>
+<div class="grid-2">
+  <div class="mini-card card-lift">
+    <strong>1️⃣ [DIRECTION_TITLE]</strong>
+    <p>[DIRECTION_DESCRIPTION_CN]</p>
+  </div>
+  <!-- ... 3-6 cards ... -->
+</div>
+</div>
+<!-- /SECTION: FUTURE -->
+
+<!-- SECTION: METHODOLOGY (evidence tiers + constraints) -->
+<div class="section" id="methodology">
+<h2><span class="num">📋</span> [SECTION_TITLE_CN]<a href="#methodology" class="anchor">#</a></h2>
+<table>
+  <tr><th>[COL1]</th><th>[COL2]</th><th>[COL3]</th></tr>
+  <tr><td><strong>[TIER_NAME]</strong></td><td>[DESCRIPTION]</td><td>[CHARACTERISTICS]</td></tr>
+  <!-- ... rows ... -->
+</table>
+<h3>[CONSTRAINTS_TITLE]</h3>
+<ul>
+  <li><strong>[CONSTRAINT_NAME]</strong>：[EXPLANATION]</li>
+  <!-- ... more constraints ... -->
+</ul>
+</div>
+<!-- /SECTION: METHODOLOGY -->
+
+<!-- ================================================================
+     SECTION: TAKEAWAYS — Key insights + data recap table
+     ================================================================ -->
+<div class="section" id="takeaways">
+
+<!-- SECTION: TAKEAWAYS_HEADING -->
+<h2><span class="num">📌</span> 核心启示与总结<a href="#takeaways" class="anchor">#</a></h2>
+<!-- /SECTION: TAKEAWAYS_HEADING -->
+
+<!-- SECTION: TAKEAWAYS_CALLOUTS -->
+<div class="callout success">
+  <strong>[INSIGHT_TITLE]</strong>
+  <p>[INSIGHT_BODY_CN]</p>
+</div>
+<!-- ... 3-5 callout.success items ... -->
+<!-- /SECTION: TAKEAWAYS_CALLOUTS -->
+
+<!-- SECTION: TAKEAWAYS_TABLE -->
+<h3>量化数据速览</h3>
+<table>
+  <tr><th>指标</th><th>数值</th><th>意义</th></tr>
+  <tr><td>[METRIC_CN]</td><td>[VALUE]</td><td>[SIGNIFICANCE_CN]</td></tr>
+  <!-- ... 8+ rows ... -->
+</table>
+<!-- /SECTION: TAKEAWAYS_TABLE -->
+</div>
+<!-- /SECTION: TAKEAWAYS -->
+
+<!-- ================================================================
+     FOOTER
+     ================================================================ -->
+<div class="section" style="text-align:center;color:var(--text2);font-size:12.5px;">
+<!-- SECTION: FOOTER -->
+<p>📖 论文精读笔记 · <strong>[PAPER_TITLE]</strong></p>
+<p>[PAPER_CITATION] · [INSTITUTION] · AI辅助整理</p>
+<p style="margin-top:4px">🔗 <a href="[PAPER_URL]" target="_blank" style="color:var(--accent)">论文原文</a> · <a href="[GITHUB_URL]" target="_blank" style="color:var(--accent)">[LINK_LABEL]</a></p>
+<!-- /SECTION: FOOTER -->
+</div>
+
+</div><!-- /content -->
+</div><!-- /container -->
+
+<!-- Sidebar toggle (mobile) -->
+<button id="sidebar-toggle" onclick="toggleSidebar()" title="目录">☰</button>
+
+<!-- Back to Top -->
+<button id="btt" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部">↑</button>
+
+<script>
+// ===============================================================
+// PART 1: Reading Progress Bar
+// ===============================================================
+(function(){
+  const bar=document.getElementById('progress-bar');
+  const btt=document.getElementById('btt');
+  window.addEventListener('scroll',()=>{
+    const h=document.documentElement, b=document.body;
+    const st=h.scrollTop||b.scrollTop, sh=h.scrollHeight||b.scrollHeight, ch=h.clientHeight;
+    const range=sh-ch;
+    bar.style.width=(range>0?Math.round(st/range*100):0)+'%';
+    if(st>600) btt.classList.add('show'); else btt.classList.remove('show');
+  });
+})();
+
+// ===============================================================
+// PART 2: Sidebar Active Highlight (IntersectionObserver)
+// ===============================================================
+const obs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      document.querySelectorAll('.sidebar a').forEach(a=>a.classList.remove('active'));
+      const link=document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+      if(link) link.classList.add('active');
+    }
+  });
+},{rootMargin:'-80px 0px -70% 0px'});
+document.querySelectorAll('.section[id]').forEach(s=>obs.observe(s));
+
+// ===============================================================
+// PART 3: Dark/Light Theme Toggle
+// ===============================================================
+function toggleTheme(){
+  const html=document.documentElement;
+  const cur=html.getAttribute('data-theme');
+  const next=cur==='dark'?'light':'dark';
+  html.setAttribute('data-theme',next);
+  try{localStorage.setItem('ppr-note-theme',next)}catch(e){}
+}
+// Load saved theme on startup
+(function(){
+  try{
+    const saved=localStorage.getItem('ppr-note-theme');
+    if(saved) document.documentElement.setAttribute('data-theme',saved);
+  }catch(e){}
+})();
+
+// ===============================================================
+// PART 4: Print — expand all sidebar details
+// ===============================================================
+window.addEventListener('beforeprint',()=>{
+  document.querySelectorAll('details').forEach(d=>d.setAttribute('open',''));
+});
+
+// ===============================================================
+// PART 5A: Lightbox — click-to-zoom for paper figures
+// ===============================================================
+(function(){
+  // Create lightbox DOM once
+  const lb = document.createElement('div');
+  lb.className = 'lightbox';
+  lb.innerHTML = `
+    <button class="lb-close" title="关闭" type="button">&times;</button>
+    <button class="lb-nav lb-prev" title="上一张" type="button">&lsaquo;</button>
+    <button class="lb-nav lb-next" title="下一张" type="button">&rsaquo;</button>
+    <img src="" alt="">
+    <div class="lb-caption"></div>`;
+  document.body.appendChild(lb);
+
+  const lbImg = lb.querySelector('img');
+  const lbCaption = lb.querySelector('.lb-caption');
+  const prevBtn = lb.querySelector('.lb-prev');
+  const nextBtn = lb.querySelector('.lb-next');
+
+  let currentFigures = [];
+  let currentIndex = 0;
+
+  function showFigure(index) {
+    if (index < 0) index = currentFigures.length - 1;
+    if (index >= currentFigures.length) index = 0;
+    currentIndex = index;
+    const fig = currentFigures[index];
+    lbImg.src = fig.src;
+    lbImg.alt = fig.alt;
+    lbCaption.textContent = fig.dataset.caption || fig.alt || '';
+    prevBtn.style.display = currentFigures.length > 1 ? '' : 'none';
+    nextBtn.style.display = currentFigures.length > 1 ? '' : 'none';
+  }
+
+  function closeLightbox() {
+    lb.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  // Attach click handlers to all paper-fig images
+  function attachLightbox() {
+    document.querySelectorAll('figure.paper-fig img').forEach(img => {
+      img.addEventListener('click', () => {
+        currentFigures = Array.from(document.querySelectorAll('figure.paper-fig img'));
+        currentIndex = currentFigures.indexOf(img);
+        showFigure(currentIndex);
+        lb.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      });
+    });
+  }
+  attachLightbox();
+
+  // Close handlers
+  lb.querySelector('.lb-close').addEventListener('click', closeLightbox);
+  lb.addEventListener('click', (e) => {
+    if (e.target === lb) closeLightbox();
+  });
+
+  // Navigation
+  prevBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showFigure(currentIndex - 1);
+  });
+  nextBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showFigure(currentIndex + 1);
+  });
+
+  // Keyboard
+  document.addEventListener('keydown', (e) => {
+    if (!lb.classList.contains('active')) return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft') showFigure(currentIndex - 1);
+    if (e.key === 'ArrowRight') showFigure(currentIndex + 1);
+  });
+})();
+
+// ===============================================================
+// PART 6: Entrance Animation (scroll-triggered reveal)
+// ===============================================================
+(function(){
+  const observer=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        e.target.classList.add('revealed');
+        observer.unobserve(e.target); // animate only once
+      }
+    });
+  },{threshold:0.1,rootMargin:'0px 0px -40px 0px'});
+  document.querySelectorAll('.section-entrance').forEach(el=>observer.observe(el));
+})();
+
+// ===============================================================
+// PART 7: Mobile sidebar toggle
+// ===============================================================
+function toggleSidebar(){
+  const s=document.querySelector('.sidebar'), o=document.querySelector('.sidebar-overlay');
+  if(!s||!o)return;
+  s.classList.toggle('active'); o.classList.toggle('active');
+  document.body.style.overflow=s.classList.contains('active')?'hidden':'';
+}
+
+// ===============================================================
+// PART 8: Code block copy button
+// ===============================================================
+(function(){
+  document.querySelectorAll('pre').forEach(pre=>{
+    const btn=document.createElement('button');
+    btn.textContent='复制';
+    Object.assign(btn.style,{
+      position:'absolute',top:'6px',right:'6px',padding:'3px 9px',fontSize:'11px',
+      borderRadius:'4px',border:'1px solid #334155',background:'#1e293b',color:'#94a3b8',
+      cursor:'pointer',opacity:'0',transition:'opacity .2s',fontFamily:'var(--sans)'
+    });
+    pre.style.position='relative';
+    pre.appendChild(btn);
+    pre.addEventListener('mouseenter',()=>btn.style.opacity='1');
+    pre.addEventListener('mouseleave',()=>btn.style.opacity='0');
+    btn.addEventListener('click',async()=>{
+      const code=pre.querySelector('code')||pre;
+      try{await navigator.clipboard.writeText(code.textContent||'');
+        btn.textContent='已复制';
+        setTimeout(()=>btn.textContent='复制',1500);
+      }catch(e){btn.textContent='失败';}
+    });
+  });
+})();
+
+// ===============================================================
+// PART 9: Table horizontal scroll detection
+// ===============================================================
+(function(){
+  document.querySelectorAll('.table-wrap').forEach(w=>{
+    const c=()=>w.classList.toggle('is-overflow',w.scrollWidth>w.clientWidth+1);
+    c(); window.addEventListener('resize',c);
+  });
+})();
+</script>
+
+</body>
+</html>
