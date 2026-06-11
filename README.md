@@ -1,10 +1,12 @@
 # Paper to HTML Reading Note
 
-> **⚠️ Token cost**: Generating a full reading note consumes approximately **60k–120k tokens** (varies by paper length, pipeline mode, and organization strategy). Use judiciously and plan your budget accordingly.
+> [**English README** →](assets/README_en.md)
 
-Convert academic CS/SE PDF papers into **self-contained, interactive HTML reading notes** — dark mode, sidebar navigation, rich component library, with **4 organization strategies** matched to your reading intent. Annotation language is chosen by the user (Simplified Chinese or English).
+> **⚠️ Token 消耗**：生成一份完整的阅读笔记大约消耗 **60k–120k tokens**（视论文长度、流水线模式和组织策略而定）。请合理规划预算。
 
-**One HTML file, zero external dependencies.** KaTeX loads from CDN on first visit, falls back to monospace when offline.
+将计算机/软件工程领域的学术 PDF 论文转换为**自包含、可交互的 HTML 阅读笔记**——暗色模式、侧边栏导航、丰富的组件库，并支持根据阅读意图选择 **4 种组织策略**。注释语言由用户选择（简体中文或英文）。
+
+**单个 HTML 文件，零外部依赖。** KaTeX 在首次访问时从 CDN 加载，离线时回退为等宽字体。
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Python](https://img.shields.io/badge/python-3.9+-blue)
@@ -12,229 +14,229 @@ Convert academic CS/SE PDF papers into **self-contained, interactive HTML readin
 
 ---
 
-## Features
+## 功能特性
 
-- 🌓 **Dark/Light mode** — persisted to `localStorage` across sessions
-- 📑 **Sticky sidebar** — IntersectionObserver highlights active section, collapsible groups
-- 🔗 **h2 anchor links** — hover reveals `#` link, click triggers section-flash animation
-- 📊 **Reading progress bar** — accent→cyan gradient
-- 🖼 **Smart figure cropping** — extracts individual diagram regions from PDFs (not full pages), with text-block cluster fallback for text-only figures
-- 📐 **KaTeX math rendering** — inline `$...$` and display `$$...$$`, monospace fallback offline
-- 🔍 **Lightbox click-to-zoom** — keyboard navigation (← → Esc), prev/next buttons
-- 🎬 **Scroll-triggered entrance animation** — first 2–3 sections fade in
-- 📱 **Mobile responsive** — sidebar collapses to ☰ overlay below 960px; table swipe with scroll indicator
-- 📋 **Code copy button** — hover on `<pre>` blocks reveals clipboard copy
-- 🖨 **Print-optimized** — hides chrome, expands all sections, constrains images
-- 📋 **6 callout types** + 3 grid layouts + 6 tag colors + syntax-highlighted code blocks
-- 🌐 **User-chosen annotation language** — Chinese (default) or English
-- 🎯 **4 organization strategies** — choose how content is ordered based on your reading intent
-- 🔎 **Paper type detection** — automatic classification (system/algorithm/survey/empirical/position) to recommend optimal strategy
-- 📝 **Formula pre-extraction** — formulas transcribed to LaTeX before section reorganization, preserving PDF page context
+- 🌓 **暗色/亮色模式**——跨会话持久化到 `localStorage`
+- 📑 **粘性侧边栏**——IntersectionObserver 高亮当前章节，可折叠分组
+- 🔗 **h2 锚点链接**——悬停显示 `#` 链接，点击触发章节闪烁动画
+- 📊 **阅读进度条**——accent→cyan 渐变色
+- 🖼 **智能图表裁剪**——从 PDF 中提取单个图表区域（非整页），对纯文字图表提供文本块聚类回退
+- 📐 **KaTeX 数学公式渲染**——行内 `$...$` 和展示 `$$...$$`，离线时回退为等宽字体
+- 🔍 **Lightbox 点击放大**——键盘导航（← → Esc），上一张/下一张按钮
+- 🎬 **滚动触发入场动画**——前 2–3 个章节淡入显示
+- 📱 **移动端响应式**——960px 以下侧边栏折叠为 ☰ 浮层；表格可滑动并显示滚动指示器
+- 📋 **代码复制按钮**——悬停 `<pre>` 块显示剪贴板复制按钮
+- 🖨 **打印优化**——隐藏操作界面，展开所有章节，约束图片尺寸
+- 📋 **6 种标注框类型** + 3 种网格布局 + 6 种标签颜色 + 语法高亮代码块
+- 🌐 **用户自选注释语言**——中文（默认）或英文
+- 🎯 **4 种组织策略**——根据阅读意图选择内容的排序方式
+- 🔎 **论文类型检测**——自动分类（系统/算法/综述/实证/立场论文），推荐最优策略
+- 📝 **公式预提取**——在章节重组之前将公式转录为 LaTeX，保留 PDF 页面上下文
 
 ---
 
-## Quick Start
+## 快速开始
 
-### Prerequisites
+### 前置依赖
 
 ```bash
 pip install PyMuPDF
 ```
 
-`pdftotext` is recommended for text extraction (included in `poppler-utils` on most systems).
+推荐安装 `pdftotext` 用于文本提取（大多数系统的 `poppler-utils` 包中包含）。
 
-### Usage (as a Claude Code skill)
+### 作为 Claude Code 技能使用
 
 ```
 /paper-to-html-note @paper.pdf
 ```
 
-The skill first gathers paper metadata (page count, figure count), detects paper type from the abstract and headings, asks you to choose a pipeline, annotation language, and **reading intent** (which maps to an organization strategy):
+技能首先收集论文元数据（页数、图表数量），从摘要和标题检测论文类型，然后引导您选择流水线、注释语言和**阅读意图**（映射为一种组织策略）：
 
-| | Pipeline A (Sequential) | Pipeline B (Parallel) |
+| | Pipeline A（串行） | Pipeline B（并行） |
 |---|:---:|:---:|
-| **Agents** | 1 | 5–12 (requires Ultracode) |
-| **Best for** | Short papers (<12pp), formula-heavy, quick previews, persona-driven narrative | Long papers (≥12pp), figure-rich (>6), surveys, cognition-first |
-| **Token cost** | ~60k–120k | ~70k–100k (overhead offset by architecture savings) |
-| **Output style** | Single-agent coherence | Dedicated agent per section, deeper analysis |
-| **Figures** | Direct base64 inline embedding | `<!-- FIG:N -->` placeholders + Python post-processing |
-| **Quality** | Writer self-checks + 29-point checklist | B3.5 review agent + B3.5b coherence agent + B4c structural validation |
+| **Agent 数量** | 1 | 5–12（需要 Ultracode） |
+| **适用场景** | 短论文（<12页）、公式多、快速预览、实践者叙事 | 长论文（≥12页）、图表多（>6）、综述类、认知先行 |
+| **Token 消耗** | ~60k–120k | ~70k–100k（架构节省抵消开销） |
+| **输出风格** | 单 Agent 一致性 | 每章节独立 Agent，分析更深 |
+| **图表处理** | 直接 base64 内联嵌入 | `<!-- FIG:N -->` 占位符 + Python 后处理 |
+| **质量保障** | 撰写者自检 + 29 项检查清单 | B3.5 评审 Agent + B3.5b 连贯性 Agent + B4c 结构验证 |
 
 ---
 
-## Organization Strategies
+## 组织策略
 
-The reading note can be organized in one of four ways, chosen automatically based on **reading intent** × **paper type**:
+阅读笔记可按四种方式组织，根据**阅读意图** × **论文类型**自动选择：
 
-| Strategy | Best For | How It Works |
-|----------|----------|-------------|
-| **paper-structure-aligned** | Reviewing familiar material | Sections follow the paper's own structure — easy cross-reference |
-| **cognition-first** | First-time reading (system/survey/position papers) | Builds understanding from problem → core idea → design → results → implications |
-| **question-driven** | First-time reading (algorithm/empirical papers) or quick evaluation | Each section IS a question the paper answers — FAQ-style |
-| **persona-driven** | Practitioner evaluation | Conversational narrative from a practitioner's perspective |
+| 策略 | 适用场景 | 工作原理 |
+|------|---------|---------|
+| **论文结构对齐**（paper-structure-aligned） | 复习已读内容 | 章节按论文自身结构排列——便于交叉参考 |
+| **认知先行**（cognition-first） | 初次阅读（系统/综述/立场论文） | 从问题 → 核心思想 → 设计 → 结果 → 启示逐步构建理解 |
+| **问题驱动**（question-driven） | 初次阅读（算法/实证论文）或快速评估 | 每个章节就是论文回答的一个问题——FAQ 风格 |
+| **实践者视角**（persona-driven） | 实践者评估 | 以实践者视角进行对话式叙述 |
 
-### Strategy Selection Logic
+### 策略选择逻辑
 
-| Intent | system | algorithm | survey | empirical | position |
-|--------|--------|-----------|--------|-----------|----------|
-| review (复习) | paper-structure | paper-structure | paper-structure | paper-structure | paper-structure |
-| learn (初学) | cognition-first | question-driven | cognition-first | question-driven | cognition-first |
-| locate (查找) | paper-structure | paper-structure | question-driven | paper-structure | question-driven |
-| evaluate (评估) | question-driven | question-driven | cognition-first | question-driven | cognition-first |
+| 意图 | system | algorithm | survey | empirical | position |
+|------|--------|-----------|--------|-----------|----------|
+| 复习 | paper-structure | paper-structure | paper-structure | paper-structure | paper-structure |
+| 初学 | cognition-first | question-driven | cognition-first | question-driven | cognition-first |
+| 查找 | paper-structure | paper-structure | question-driven | paper-structure | question-driven |
+| 评估 | question-driven | question-driven | cognition-first | question-driven | cognition-first |
 
 ---
 
-## Figure Extraction: Caption-Driven Smart Cropping
+## 图表提取：标题驱动的智能裁剪
 
-Academic PDF figures are **vector graphics** (drawings), not embedded raster images. The built-in extractor combines four signals — **no external models or APIs required**, pure geometric analysis with zero dependencies beyond PyMuPDF:
+学术 PDF 中的图表是**矢量图形**（drawings），而非嵌入的栅格图像。内置提取器融合了四种信号——**无需外部模型或 API**，纯几何分析，仅依赖 PyMuPDF：
 
 ```
-                Body paragraph (full-width, >150 chars)
-                  ↓ constrains top edge
-  ┌──────────────────────────────────┐  ← fig_top
-  │    Vector drawings ██████████    │  ← drawing density tightens bounds
-  │    (or text-block cluster)       │  ← v4.1 fallback
-  │    Figure content                │
-  ├──────────────────────────────────┤  ← fig_bottom = caption_top − 2pt
-  │  Fig. 1. Overview of ...         │  ← caption anchor
+                正文段落（通栏，>150 字符）
+                  ↓ 约束上边界
+  ┌──────────────────────────────────┐  ← 图表顶部
+  │    矢量图 ██████████              │  ← 绘图密度收紧边界
+  │    （或文本块聚类）               │  ← v4.1 回退
+  │    图表内容                       │
+  ├──────────────────────────────────┤  ← 图表底部 = 标题顶部 − 2pt
+  │  Fig. 1. Overview of ...         │  ← 标题锚点
   └──────────────────────────────────┘
 ```
 
-Covers ~95% of CS papers; text-only figures (trees, tables, flowcharts) use a v4.1 text-block cluster fallback.
+覆盖约 95% 的计算机科学论文；纯文字图表（分类树、表格、流程图）使用 v4.1 文本块聚类回退。
 
-A **quick pre-check** runs before the full extractor — scans for "Fig."/"Figure" captions across all pages to decide whether extraction is needed at all.
+在运行完整提取器之前会进行**快速预检**——扫描所有页面的 "Fig."/"Figure" 标题，判断是否需要执行提取。
 
-### Standalone figure extraction
+### 独立图表提取
 
 ```bash
 python scripts/extract_figures.py paper.pdf --dpi 200 -o figures.json
 
-# Also save individual PNGs
+# 同时保存为独立 PNG
 python scripts/extract_figures.py paper.pdf --dpi 200 --save-images
 ```
 
 ---
 
-## HTML Component Library
+## HTML 组件库
 
-| Component | Use for |
-|-----------|---------|
-| `.callout` (6 variants: info/warn/success/danger/purple/cyan) | Insights, warnings, takeaways, design motivation |
-| `.grid-2 > .mini-card` | Parallel concepts, values, future directions |
-| `.pbox` numbered list | Design principles, rules, guidelines |
-| `table` inside `.table-wrap` | Architectures, comparisons, taxonomies, benchmarks |
-| `figure.paper-fig` | Embedded figures with lightbox zoom + lazy loading |
-| `.summary-grid` | Key metrics dashboard (6–16 items) |
-| `.formula-display` / `.formula-inline` | KaTeX formulas with offline fallback |
-| `pre` + syntax highlighting | Pseudocode and code snippets (hover to copy) |
-| `.trace` ordered list | Numbered process flow |
-| `.mindmap` | Concept visualization with center node + children |
-| `.tag` (6 colors) | Inline labels |
-
----
-
-## Context Safety Design
-
-Pipeline B avoids context explosion through file I/O isolation — base64 image data **never enters LLM context**:
-
-| Stage | Sub-agent returns | Context footprint |
-|-------|-------------------|:---:|
-| B1 (parallel extraction) | JSON metadata (figure IDs, formula LaTeX) | <2KB |
-| B2 (section assignment) | N section assignments with `strategy` field, `position_context`, `previously_defined_concepts` | <5KB |
-| B3 (parallel writing) | `{section_id, num, title, file_path}` via structured schema | ~50B × N |
-| B3.5 (quality review) | Structured review JSON + coherence gate check | <1KB |
-| B3.5b (coherence validation) | Lightweight pairwise edits with div safety validation | 0 (shell validation) |
-| B4 (shell assembly) | `assemble_figures.py` + ordered concatenation | **0 LLM tokens** |
-| B4c (final agent) | Reads `sections_meta.json` only — never reads `assembled_body.html` | <2KB |
+| 组件 | 用途 |
+|------|------|
+| `.callout`（6 种变体：info/warn/success/danger/purple/cyan） | 见解、警告、要点、设计动机 |
+| `.grid-2 > .mini-card` | 并行概念、价值观、未来方向 |
+| `.pbox` 编号列表 | 设计原则、规则、指南 |
+| `.table-wrap` 内的 `table` | 架构、对比、分类、基准 |
+| `figure.paper-fig` | 内嵌图表（支持 Lightbox 放大 + 懒加载） |
+| `.summary-grid` | 关键指标仪表板（6–16 项） |
+| `.formula-display` / `.formula-inline` | KaTeX 公式（离线回退） |
+| `pre` + 语法高亮 | 伪代码和代码片段（悬停复制） |
+| `.trace` 有序列表 | 编号流程 |
+| `.mindmap` | 概念可视化（中心节点 + 子节点） |
+| `.tag`（6 种颜色） | 内联标签 |
 
 ---
 
-## Example Output
+## 上下文安全设计
 
-A real-world reading note generated from **"Towards Personalized LLM-Powered Agents"** — a survey paper on personalized agents:
+Pipeline B 通过文件 I/O 隔离避免上下文爆炸——base64 图片数据**绝不进入 LLM 上下文**：
 
-> **[📄 Open the live reading note →](https://htmlpreview.github.io/?https://github.com/LiangRichard13/paper-to-html-note/blob/master/assets/examples/toward_personalized_llm_powered_agents_reading_notes.html)**
-> *(Powered by [htmlpreview.github.io](https://htmlpreview.github.io/) — renders the HTML directly in your browser)*
-
-<img src="assets/examples/screenshot.png" alt="Reading note screenshot — dark mode with sidebar navigation, callout cards, and inline figures" width="720">
-
-**What this example shows**:
-- 29-page survey paper, 8 figures, Chinese annotation language
-- 6 content sections: Foundations → Memory → Profile → Retrieval → Evolution → Evaluation
-- Inline architecture diagrams and comparison charts with lightbox zoom
-- Insight callouts (design motivation, cross-section links, practical takeaways, critical observations)
-- Executive summary dashboard with key metrics
-- Taxonomy table, comparison table, and future directions cards
-
-> The file is fully self-contained — no network required (KaTeX loads on first visit, works offline after that).
+| 阶段 | 子代理返回内容 | 上下文占用 |
+|------|---------------|:--------:|
+| B1（并行提取） | JSON 元数据（图表 ID、公式 LaTeX） | <2KB |
+| B2（章节分配） | N 个章节分配（含 `strategy`、`position_context`、`previously_defined_concepts`） | <5KB |
+| B3（并行撰写） | `{section_id, num, title, file_path}`（结构化 schema） | ~50B × N |
+| B3.5（质量评审） | 结构化评审 JSON + 连贯性门控检查 | <1KB |
+| B3.5b（连贯性验证） | 轻量级成对编辑 + div 安全验证 | 0（shell 验证） |
+| B4（shell 组装） | `assemble_figures.py` + 按顺序拼接 | **0 LLM tokens** |
+| B4c（最终 Agent） | 仅读取 `sections_meta.json`——绝不读取 `assembled_body.html` | <2KB |
 
 ---
 
-## Project Structure
+## 示例输出
+
+来自 **"Towards Personalized LLM-Powered Agents"** 的实际阅读笔记——一篇关于个性化 Agent 的综述论文：
+
+> **[📄 在线查看阅读笔记 →](https://htmlpreview.github.io/?https://github.com/LiangRichard13/paper-to-html-note/blob/master/assets/examples/toward_personalized_llm_powered_agents_reading_notes.html)**
+> *（由 [htmlpreview.github.io](https://htmlpreview.github.io/) 驱动——直接在浏览器中渲染 HTML）*
+
+<img src="assets/examples/screenshot.png" alt="阅读笔记截图——暗色模式，侧边栏导航，标注卡和内嵌图表" width="720">
+
+**此示例展示**：
+- 29 页综述论文，8 张图，中文注释语言
+- 6 个内容章节：基础 → 记忆 → 画像 → 检索 → 进化 → 评估
+- 架构图和对比图内嵌展示，支持 Lightbox 放大
+- 见解标注框（设计动机、跨章节链接、实践要点、关键观察）
+- 执行摘要仪表板展示关键指标
+- 分类表、对比表和未来方向卡片
+
+> 文件完全自包含——无需网络（KaTeX 首次访问时加载，此后离线可用）。
+
+---
+
+## 项目结构
 
 ```
 paper-to-html-note/
-  SKILL.md                   # Skill definition — complete workflow spec with 4 organization strategies
-  README.md                  # This file
-  pyproject.toml             # Python dependencies
+  SKILL.md                   # 技能定义——包含 4 种组织策略的完整工作流规范
+  README.md                  # 本文件（中文）
   assets/
-    template.html            # Chinese template — all UI labels in Simplified Chinese
-    template_en.html         # English template — all UI labels in English (structurally identical)
+    README_en.md             # 英文版 README
+    template.html            # 中文模板——所有 UI 标签为简体中文
+    template_en.html         # 英文模板——所有 UI 标签为英文（结构上完全一致）
     examples/
       toward_personalized_llm_powered_agents_reading_notes.html
-                             # Real-world example: 29-page survey paper reading note
+                             # 实际示例：29 页综述论文阅读笔记
   references/
-    component-catalog.md     # All HTML components with usage guide
-    design-system.md         # CSS variables, themes, JS modules, enhancements
+    component-catalog.md     # 所有 HTML 组件及使用指南
+    design-system.md         # CSS 变量、主题、JS 模块、增强功能
   scripts/
-    extract_figures.py       # Caption-driven figure extraction (v4.1)
-    assemble_figures.py      # Figure placeholder → base64 assembly + structural validation
+    extract_figures.py       # 标题驱动图表提取（v4.1）
+    assemble_figures.py      # 图表占位符 → base64 组装 + 结构验证
 ```
 
 ---
 
-## Supported Paper Types
+## 支持的论文类型
 
-Optimized for **CS/SE academic papers** (arXiv, ACM, IEEE, NeurIPS, ICML, etc.).
+针对**计算机科学/软件工程学术论文**优化（arXiv、ACM、IEEE、NeurIPS、ICML 等）。
 
-- Two-column and single-column layouts
-- Full-width and column-spanning figures
-- Vector graphics (drawings) and raster images
-- Text-only figures (taxonomy trees, tables, code listings) — v4.1 text-block cluster
-- Papers with mathematical formulas (KaTeX via CDN)
-- Multi-figure pages
-- Papers without figures (quick pre-check skips extraction gracefully)
-
----
-
-## Limitations & Edge Cases
-
-| Scenario | Behavior |
-|----------|----------|
-| Raster-only figures (scanned PDFs) | Falls back to caption-based estimation |
-| Non-English captions (e.g., "図 1") | Not detected; needs regex extension |
-| Three-column layouts | Body paragraph detection may be inaccurate |
-| Sub-figure captions (Fig. 1a) | Supported via regex |
-| Caption above figure (old-style) | Will crop incorrectly |
-| Figure spanning page break | May cut at page bottom |
-| Text-only figures (no drawings) | v4.1 text-block cluster fallback; may need manual cropping if boundaries are ambiguous |
+- 双栏和单栏排版
+- 通栏和跨栏图表
+- 矢量图形（drawings）和栅格图像
+- 纯文字图表（分类树、表格、代码清单）——v4.1 文本块聚类
+- 含数学公式的论文（KaTeX 通过 CDN 加载）
+- 多图页面
+- 无图论文（快速预检优雅跳过）
 
 ---
 
-## Dependencies
+## 局限性与边界情况
+
+| 场景 | 行为 |
+|------|------|
+| 纯栅格图（扫描版 PDF） | 回退为基于标题的估计 |
+| 非英文标题（如 "図 1"） | 无法检测；需要扩展正则表达式 |
+| 三栏排版 | 正文段落检测可能不准确 |
+| 子图标题（Fig. 1a） | 通过正则表达式支持 |
+| 标题在图片上方（旧式排版） | 裁剪将不正确 |
+| 跨页图表 | 可能在页面底部被切断 |
+| 纯文字图表（无绘图） | v4.1 文本块聚类回退；若边界模糊可能需要手动裁剪 |
+
+---
+
+## 依赖项
 
 - **Python 3.9+**
-- **PyMuPDF** (`fitz`) — PDF parsing, text extraction, figure rendering
-- **KaTeX** — CDN-loaded (monospace fallback when offline)
-- **pdftotext** (optional) — faster text extraction
+- **PyMuPDF**（`fitz`）——PDF 解析、文本提取、图表渲染
+- **KaTeX**——通过 CDN 加载（离线时回退为等宽字体）
+- **pdftotext**（可选）——更快的文本提取
 
 ---
 
-## License
+## 许可证
 
-MIT License.
+MIT License。
 
-## Acknowledgments
+## 致谢
 
-- [KaTeX](https://katex.org/) — Fast math rendering for the web
-- [PyMuPDF](https://pymupdf.readthedocs.io/) — PDF parsing and rendering
+- [KaTeX](https://katex.org/)——快速网页数学公式渲染
+- [PyMuPDF](https://pymupdf.readthedocs.io/)——PDF 解析和渲染
