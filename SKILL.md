@@ -37,13 +37,61 @@ Before presenting the choice, gather the data needed for a good recommendation:
 
 4. Extract PDF text with `pdftotext -layout` (or PyMuPDF fallback). After extraction, verify: if `wc -l` shows <50 lines AND `python -c "import fitz; print(fitz.open('<pdf-path>').page_count)"` also shows <2 pages, the PDF is likely unreadable (scanned, encrypted, or corrupted). Warn the user and ask whether to proceed.
 
-5. Run `scripts/extract_figures.py` to get page count and figure count. **Read only the stdout summary** (page count, figure count, method breakdown) — do NOT read the full JSON file which contains multi-MB base64 strings. If the script reports 0 figures, note this for the user; the paper may have no figures or use non-standard caption formats.
+5. **Quick pre-check for figures**: Before running the full extractor, scan for standard figure captions:
+
+   ```bash
+   python -c "
+   import fitz
+   doc = fitz.open('<pdf-path>')
+   has_fig = any('Fig.' in page.get_text() or 'Figure' in page.get_text() for page in doc)
+   print('HAS_FIGURES' if has_fig else 'NO_FIGURES')
+   "
+   ```
+
+   - If `NO_FIGURES`: skip `extract_figures.py` entirely. Note: "论文可能无图表或使用非标准 caption 格式，跳过图表提取。"
+   - If `HAS_FIGURES`: proceed with step 5b below.
+
+5b. Run `scripts/extract_figures.py` to get page count and figure count. **Read only the stdout summary** (page count, figure count, method breakdown) — do NOT read the full JSON file which contains multi-MB base64 strings. If the script reports 0 figures, note this for the user; the paper may have no figures or use non-standard caption formats.
 
 6. **Hard guard**: If `pages ≥ 50` and Ultracode is NOT available, warn the user that Pipeline A risks context overflow and quality degradation. Proceed only with user acknowledgment.
 
+6.5. **Detect paper type** from the extracted text. Read the abstract and section headings, then classify the paper into one of the following types. This classification is used in Phase 0b to recommend an organization strategy.
+
+   | Type | Signals (any 2+ confirm) | Typical Structure |
+   |------|--------------------------|-------------------|
+   | **system** | "we built", "we implemented", "architecture", "system design", "deployed", named system/framework, architecture diagram as Fig 1 | Intro → Design/Architecture → Implementation → Evaluation → Related Work → Conclusion |
+   | **algorithm** | "we propose", "our method", formal problem statement, pseudocode/algorithm listing, theorem/proof, convergence analysis, benchmark tables | Intro → Problem Formulation → Proposed Method → Theoretical Analysis → Experiments → Related Work → Conclusion |
+   | **survey** | "we survey", "taxonomy", "literature review", "categorize", "landscape", structured comparison tables, classification diagrams | Intro → Background → Taxonomy → Category-by-Category Analysis → Comparison → Open Challenges → Conclusion |
+   | **empirical** | "we measure", "we evaluate", "benchmark", "dataset", "user study", "A/B test", "reproducibility", hypothesis testing, statistical significance | Intro → Methodology/Study Design → Results → Analysis/Discussion → Threats to Validity → Conclusion |
+   | **position** | "we argue", "we envision", "roadmap", "grand challenge", "manifesto", "call to action", few/no experiments, normative language | Intro → Problem Statement → Argument/Position → Evidence/Examples → Implications → Conclusion |
+
+   **Detection process**:
+   1. Scan the abstract for signal phrases from the table above. Assign confidence scores (0-1) for each type.
+   2. Scan the top-level section headings for structural clues (e.g., "Architecture" → system, "Theoretical Analysis" → algorithm, "Taxonomy" → survey).
+   3. Pick the type with the highest combined score. If ambiguous (two types within 0.2 of each other), note both and let the user resolve in Phase 0b.
+   4. Reuse existing Phase A2 content pattern detection where possible: architecture descriptions reinforce "system", taxonomy/classification reinforces "survey", mathematical formulas without system architecture reinforce "algorithm".
+
+6.6. **Pre-extract formulas** before structure analysis. Scan the full extracted text for mathematical formulas. This step runs BEFORE any section reorganization so that formulas can be located by their original PDF context. Generate structured data:
+
+   ```json
+   {
+     "formulas": [
+       {"id": "eq1", "latex": "a_t \\sim \\pi(a_t \\mid s_t, h_t, \\theta_u)", "page": 3, "context": "The agent's behavior can be abstracted as a policy..."},
+       ...
+     ],
+     "formula_count": 6,
+     "sections_with_formulas": ["2.1", "2.2", "5.1"]
+   }
+   ```
+
+   - For papers with <5 formulas: manually transcribe each formula to LaTeX from the rendered PDF page.
+   - For papers with 5-15 formulas: transcribe critical formulas; for the rest, note page position for later reference.
+   - For papers with >15 formulas: use `scripts/extract_figures.py` on formula-heavy pages to capture them as images. Note that formula images won't render in dark mode.
+   - The transcribed formulas are immutable source data — regardless of which organization strategy is chosen later, formulas are embedded into the reorganized sections by matching their `context` and `page` fields.
+
 ### Phase 0b: Ask the user
 
-Use `AskUserQuestion` to present **two choices**: pipeline mode and annotation language.
+Use `AskUserQuestion` to present choices
 
 **Question 1 — Pipeline mode.** Include:
 - **Page count** and **figure count** from Phase 0a
@@ -113,31 +161,80 @@ The user picks, and you proceed with the chosen pipeline. If the user does not r
 - The Content Depth Rules and Sub-Agent Prompt (sub-agents are told which language to write in)
 - Technical terms, code identifiers, author names, and numerical values are always preserved in original form regardless of language choice
 
-Both pipelines share the same HTML template, component library, figure extractor, and quality checks — they differ in how work is scheduled across agents and how figures are embedded inline (Pipeline A: direct base64; Pipeline B: `<!-- FIG:N -->` placeholders replaced in a post-processing Python step).
+**Question 3 — Use scenario.** Automatically maps to an organization strategy based on user intent and detected paper type. This merges what would otherwise be two separate questions (intent + strategy) into one, minimizing decision fatigue. Present these options:
+
+| Option (Chinese) | Option (English) | → Auto Strategy | Best For |
+|---|---|---|---|
+| 我想复习之前读过的内容 | I've read it, need reference notes | paper-structure-aligned | Quick section-by-section lookup |
+| 这是我第一次接触这篇论文 | I haven't read this paper yet | cognition-first or question-driven (auto-selected based on paper type) | Building understanding from scratch |
+| 我想快速判断值不值得读 | I'm deciding whether to read this | question-driven | 5-minute overview of core contributions |
+| 自定义组织方式... | Custom... | Expands to Q4 for manual strategy selection | Advanced users |
+
+**Auto-selection logic for "第一次接触"**: Use the detected paper type from Phase 0a step 6.5 with the complete recommendation matrix below.
+
+**Complete recommendation matrix (intent × paper_type → primary strategy)**:
+
+| Intent | system | algorithm | survey | empirical | position |
+|--------|--------|-----------|--------|-----------|----------|
+| review (复习) | paper-structure | paper-structure | paper-structure | paper-structure | paper-structure |
+| learn (初学) | cognition-first | question-driven | cognition-first | question-driven | cognition-first |
+| locate (查找) | paper-structure | paper-structure | question-driven | paper-structure | question-driven |
+| evaluate (评估) | question-driven | question-driven | cognition-first | question-driven | cognition-first |
+
+**If paper type was ambiguous in Phase 0a step 6.5** (two types within 0.2 confidence), include a note in the Q3 prompt:
+```
+📋 注意：论文类型检测不确定（可能是 {type_a} 或 {type_b}）。
+如果选择「第一次接触」，将默认按 {type_a} 组织（{type_a_strategy}）。
+如需要 {type_b_strategy} 组织，请选择「自定义」手动切换。
+```
+
+**Q4 — Manual strategy selection** (only shown when Q3 = "自定义"):
+
+| Option | Label (Chinese) | Best For |
+|--------|-----------------|----------|
+| paper-structure-aligned | 论文结构对齐 | You've read the paper; section-by-section reference |
+| cognition-first | 认知先行 | You haven't read it; mental framework before details |
+| question-driven | 问题驱动 | You want answers to core design questions |
+| persona-driven | 实践者视角 | You're a practitioner evaluating whether/how to apply |
+
+**Default**: paper-structure-aligned. If the user does not respond to Q3, this is the fallback — behavior identical to current.
+
+**Pipeline B warning for persona-driven**: If the user selects persona-driven AND Pipeline B, issue this warning:
+
+```
+⚠️ persona-driven 策略需要统一的叙事人格，并行模式（Pipeline B）会削弱叙事一致性，
+因为多个子代理各自模仿同一人格会产生风格差异。建议切换到 Pipeline A（串行）。
+
+用户可选择：[切换到 Pipeline A] [坚持 Pipeline B（接受风险）]
+```
+
+Both pipelines share the same HTML template, component library, figure extractor, and quality checks — they differ in how work is scheduled across agents and how figures are embedded inline (Pipeline A: direct base64; Pipeline B: `<!-- FIG:N -->` placeholders replaced in a post-processing Python step). The chosen organization strategy applies to both pipelines — it controls section ordering and grouping, not the generation method.
 
 **Example combined prompt:**
 
 ```markdown
 📋 **论文基本信息**：29页，8张图，综述论文
 
-**请选择生成模式：**
+**Q1: 请选择生成模式：**
 
 **Pipeline A（串行）** — 1个Agent
-  - ✅ 输出风格一致
-  - ✅ 图直接嵌入对应章节
+  - 输出风格一致，图直接嵌入对应章节
   - **推荐场景**：短文、公式多
 
 **Pipeline B（并行）** — 5-12个Agent（需Ultracode）
-  - ✅ 各章节由独立Agent撰写，深度更高
-  - ✅ 适合分类体系清晰的综述论文
+  - 各章节由独立Agent撰写，深度更高
   - **推荐场景**：长文、图表多、综述类
 
 👉 **建议**：推荐Pipeline B（并行）。
 
-**请选择注释语言：**
+**Q2: 请选择注释语言：**
 
-中文（简体） — 所有解释性文字使用中文
-English — All annotations in English
+中文（简体） / English
+
+**Q3: 请选择使用场景：**
+
+🏷️ "这是我第一次接触这篇论文" → 自动推荐：cognition-first（认知先行）
+    备选：question-driven（问题驱动）
 ```
 
 ---
@@ -146,11 +243,11 @@ English — All annotations in English
 
 A reading note is not a translation or summary — it is a **curated analysis**. Every section must deliver more value than re-reading the original paper. These rules apply regardless of which pipeline is used.
 
-### Principle 1: Follow Paper Structure, Invert Within Sections
+### Principle 1: Strategy-Aware Organization, Invert Within Sections
 
-**Section order must match the paper's own structure** — Introduction → Background → Method → Experiments → Discussion → Conclusion. Readers who know the paper should feel oriented, not lost.
+**Section order is determined by the chosen organization strategy** from Phase 0b. The default strategy (paper-structure-aligned) matches the paper's own structure — Introduction → Background → Method → Experiments → Discussion → Conclusion. Readers who know the paper should feel oriented, not lost. Other strategies (cognition-first, question-driven, persona-driven) reorder content around the reader's cognitive path. See the [Organization Strategy Reference](#organization-strategy-reference) for per-strategy ordering rules.
 
-**Within each section**, use inverted pyramid: state the conclusion first, then explain why.
+**Within each section**, regardless of strategy, use inverted pyramid: state the conclusion first, then explain why.
 
 ```
 ❌ Paper-order: "The authors propose three memory types: text, vector, and graph.
@@ -202,6 +299,126 @@ Choose components based on the **cognitive intent** of the content, not just wha
 
 ---
 
+## Organization Strategy Reference
+
+The four strategies below control how sections are ordered and grouped. The agent applies the chosen strategy during Phase A3 (content-to-component mapping), A4 (HTML generation), B2 (section assignment), and B3 (sub-agent writing). The default is `paper-structure-aligned`.
+
+### Strategy Selection
+
+Strategy is determined by a combination of **user intent** (from Phase 0b Q3) and **detected paper type** (from Phase 0a step 6.5). See the recommendation matrix in Phase 0b for which strategy to recommend for each (intent × paper_type) combination.
+
+### Strategy 1: paper-structure-aligned (default)
+
+**Goal**: Match the paper's structure for easy cross-reference.
+**Best for**: review/locate intent, any paper type.
+**Section order**: Follow the paper's own heading hierarchy. Identify which template section blocks correspond to which paper sections and place them in paper order.
+**Sidebar grouping**: Groups follow paper structure (grouped by paper section number).
+
+### Strategy 2: cognition-first
+
+**Goal**: Build a cognitive framework from the ground up. Start with "what problem does this solve and why should I care?" before diving into details.
+**Best for**: learn intent, system/survey/position papers.
+**Section order**: Problem-first, solution-second, details-last.
+
+```
+1. Problem & Motivation (what gap exists, why it matters)
+2. Core Idea / One-Liner (the paper's key insight in 1 paragraph)
+3. Approach Overview (high-level architecture or taxonomy, with Fig 1)
+4. Key Design Decisions (design principles, tradeoffs made)
+5. How It Works (mechanisms, algorithms, implementation details)
+6. Results & Evidence (does it actually work?)
+7. Limitations & Open Questions (what's still unsolved)
+8. Relationship to Prior Work (how it fits the landscape)
+9. Methodology Notes (how the research was conducted)
+10. Takeaways (what a practitioner should remember)
+```
+
+**Section merging**: Combine Introduction + Background into "Problem & Motivation". Split Method into "Core Idea" + "Key Design Decisions" + "How It Works". Move Related Work later.
+**Sidebar grouping**: Groups follow the reader's learning journey: "Understanding the Problem" → "The Solution" → "Evidence" → "Broader Context".
+
+### Strategy 3: question-driven
+
+**Goal**: Organize content around 4-8 core questions the paper answers. Each section IS a question.
+**Best for**: learn/evaluate intent, algorithm/empirical papers.
+**Section order**: Questions in logical dependency order (foundational questions first). Agent generates questions from paper content.
+
+**Question templates by paper type** (derive from paper content, not copy verbatim):
+
+| Paper Type | Template Questions |
+|------------|-------------------|
+| system | What problem does this system solve? What is the key architectural insight? How are the components organized? What design tradeoffs were made? Does it perform well? What are its limitations? |
+| algorithm | What problem does this algorithm solve? What is the core idea/insight? How does it work step by step? How does it compare to alternatives? Under what conditions does it fail? |
+| survey | What is the landscape? How are approaches categorized? What are the key dimensions of comparison? What patterns emerge across categories? What open problems remain? |
+| empirical | What was studied and why? How was the study designed? What were the key findings? How robust are the results? What should practitioners do differently? |
+| position | What is the central argument? What evidence supports it? What assumptions underlie it? What would change if adopted? What are the counterarguments? |
+
+**Section heading**: The h2 heading text IS the question itself (e.g., "系统如何在动态环境中保持记忆一致性？").
+**Sidebar grouping**: One group = one question. The sidebar becomes an FAQ-like index.
+
+**Bare-bones question-section template** (for Pipeline A; Pipeline B sub-agents use the same structure):
+
+```html
+<div class="section" id="{question_id}">
+<h2><span class="num">{N}</span> {question_text}<a href="#{question_id}" class="anchor">#</a></h2>
+<p>{开篇回答 — 1-2 sentences that directly answer the question. This is the most important sentence of the section.}</p>
+<!-- Body: mix of callouts + optional figures/formulas. Use the same component catalog as other strategies. -->
+</div>
+```
+
+### Strategy 4: persona-driven
+
+**Goal**: Narrate the paper as if a practitioner is explaining it to a colleague.
+**Best for**: evaluate intent, system/position papers.
+**Section order**: Narrative arc from practitioner's perspective.
+
+```
+1. "Why I picked up this paper" (context + motivation)
+2. "The one idea I can't stop thinking about" (core contribution)
+3. "How it actually works — the 5-minute version" (architecture/mechanism walkthrough)
+4. "Numbers that matter" (key results, with skepticism about generalizability)
+5. "Where I'd be cautious" (limitations, unstated assumptions)
+6. "When I'd use this" (practical applicability guide)
+7. "What I'd build next" (future directions relevant to practitioners)
+8. "Papers I'd read alongside this" (curated related work)
+```
+
+**Tone**: Use conversational section titles. Write section intros in first/second-person ("you", "I read this so you don't have to"). Technical claims remain precise — informality is in framing, not in data or claims.
+**Sidebar grouping**: Conversational groups like "Why It Matters" / "How It Works" / "Should You Use It?".
+
+### Strategy Implementation: buildSectionOrder()
+
+For implementation, each strategy is an ordered list of section types with grouping metadata. The agent:
+
+1. Selects which template section blocks to keep (from Phase A3 content mapping)
+2. Orders those blocks per the strategy (not per the template's default order)
+3. Groups sidebar entries per the strategy
+
+**Key rule**: Content mapping determines WHICH sections exist. Strategy determines their ORDER. Never force content into sections the paper doesn't have — only change sequence and grouping.
+
+### Pipeline B Compatibility
+
+| Strategy | Pipeline B Support | Extra Mechanism | Cost |
+|----------|:---:|---|------|
+| paper-structure | ✅ Native | None | Zero |
+| question-driven | ✅ Mild adaptation | B2 provides `previously_defined_concepts` list to each sub-agent to prevent re-definition | Low (~200 chars/sub-agent) |
+| cognition-first | ⚠️ Needs coherence validation | B3.5 extended with Coherence Agent that checks cross-section transitions, concept consistency, and duplicates using pairwise checking | Medium (+1 agent call) |
+| persona-driven | ❌ Not recommended | Warn user to switch to Pipeline A; unified narrative voice cannot be maintained across parallel sub-agents | Zero (warning only) |
+
+### Figure & Formula Integration Across Strategies
+
+**Formulas**: Formulas are embedded within text paragraphs. When B2 reorganizes text for any strategy, formulas travel with their surrounding text. **Prerequisite**: Formula LaTeX transcription MUST be completed during Phase 0a step 6.6 (before any pipeline selection), so that formulas can be located by their PDF context before sections are reorganized. See Phase 0a step 6.6.
+
+**Figures**: Figures are independent objects with a single physical page location but variable logical attribution. B2 must explicitly reassign figures when strategies reorganize section boundaries:
+
+| Strategy | Figure Handling |
+|----------|----------------|
+| paper-structure | Figures inherit paper section assignment. No change needed. |
+| cognition-first | When B2 merges paper sections into thematic units, the `figures` field = **union** of all source sections' figure IDs. |
+| question-driven | B2 may assign the **same figure to multiple questions**. `assemble_figures.py` handles this automatically: first occurrence gets full `<figure>`, subsequent occurrences become `.fig-ref` cross-references (existing Component 23 mechanism). |
+| persona-driven | Same as cognition-first for assignment. Additional: `strategy_guidance` tells sub-agents to write figure captions in conversational tone. |
+
+---
+
 # Pipeline A: Sequential (Default)
 
 Single-agent sequential pipeline. Extract → analyze → map → write → check. Figures and formulas are extracted first, then embedded inline as the agent writes each section — ensuring they appear in the correct context.
@@ -218,11 +435,15 @@ Uses `pdftotext` for text extraction, with a PyMuPDF fallback if the result is g
 
 ### Step 1.1: Extract full text
 
+**If `paper_text.txt` already exists** from Phase 0a step 4, reuse it. Skip to Step 1.2. The Phase 0a extraction already validated line count and performed PyMuPDF fallback if needed. No re-extraction or re-validation is necessary.
+
+**Otherwise** (standalone Pipeline A invocation without Phase 0a), extract via pdftotext:
+
 ```bash
 pdftotext -layout "<pdf-path>" "<output-dir>/paper_text.txt"
 ```
 
-Check the result: `wc -l` should show >100 lines for a real paper. If under 50 lines or output is garbled, fall back to PyMuPDF:
+Check the result: `wc -l` should show >50 lines for a real paper (same threshold as Phase 0a step 4). If under 50 lines or output is garbled, fall back to PyMuPDF:
 
 ```bash
 python -c "
@@ -312,7 +533,9 @@ These URIs go into `<img src="...">` attributes. **Each figure should be embedde
 
 ### Step 1.2-alt: Handle mathematical formulas
 
-pdftotext cannot extract formulas as LaTeX (PDFs store rendered glyphs, not source code). Two options:
+**If formulas were already pre-extracted in Phase 0a step 6.6**, skip manual transcription and use the pre-extracted formula data directly. The pre-extracted data provides `{id, latex, page, context}` for each formula — embed them using `$...$` or `$$...$$` in the appropriate content sections. No further transcription is needed.
+
+**Otherwise** (pre-extraction was skipped, incomplete, or Pipeline A was invoked without Phase 0a), follow the options below:
 
 - **Manual transcription** (recommended): For critical formulas, read from the rendered page image (use PyMuPDF to quickly render a preview of the page) and write LaTeX inside `$$...$$` delimiters. This is the preferred approach since it enables KaTeX rendering, searchability, and dark mode support.
 - **Figure extraction fallback**: If the formula count is very high (>15) and manual transcription is impractical, use caption-driven cropping (`scripts/extract_figures.py`) to extract the formula-heavy portion of the page as an image. Note that embedded formula images won't render in dark mode or support text search.
@@ -394,6 +617,25 @@ Based on what patterns you found in Phase A2, decide which components to render.
 | Conclusion/takeaways | `.callout.success` series (3-5) | Synthesize key insights |
 | ≥8 data points total | Summary `table` (metric/value/meaning) | End-of-document data recap |
 
+### Strategy-Aware Section Ordering
+
+After identifying which sections to include (from the mapping above), order them according to the chosen organization strategy. Refer to the [Organization Strategy Reference](#organization-strategy-reference) for each strategy's ordering rules.
+
+**Key rule**: Content mapping determines WHICH sections exist. Strategy determines their ORDER. You never force content into sections the paper doesn't have — you only change the sequence and grouping.
+
+**Strategy parameter**: `{organization_strategy}` from Phase 0b Q3/Q4. Default: `paper-structure-aligned`.
+
+**Section building per strategy**:
+
+| Strategy | Section Building Approach |
+|----------|--------------------------|
+| paper-structure | Use template pre-built section blocks. Delete unused ones, add new ones as needed (current behavior). |
+| cognition-first | Reuse the closest pre-built block where possible (e.g., `#architecture` structure for "Design Decisions" chapter). Merge template blocks when multiple paper sections combine into one thematic unit. |
+| question-driven | Build each section from the bare-bones question-section template defined in Organization Strategy Reference. The h2 heading IS the question text. Body uses the same component catalog as other strategies. |
+| persona-driven | Same as cognition-first for structure, but use conversational section titles. |
+
+**Figure placement per strategy**: In cognition-first and persona-driven, B2 reassigns figures to the new thematic units. In question-driven, the same figure may appear in multiple questions — the first occurrence gets the full `<figure>`, subsequent ones get a `.fig-ref` cross-reference (handled automatically by `assemble_figures.py` in Pipeline B, or manually in Pipeline A).
+
 ### Component reading
 
 Before generating HTML, read these reference files:
@@ -456,13 +698,29 @@ The template uses `<!-- SECTION: NAME --> ... <!-- /SECTION: NAME -->` comments 
 
 This means deleting `<!-- SECTION: FIGURES -->` if all figures are placed inline. The optional gallery is only for residual figures or quick-reference thumbnails.
 
-### A4.3 Select content sections
+### A4.3 Select, order, and build content sections
 
-Based on your Phase A3 content-to-component mapping, keep only the `.section` blocks that match the paper's actual content. Delete unused template section blocks. Add new ones if the paper has content patterns not covered by the defaults.
+Based on your Phase A3 content-to-component mapping AND the chosen organization strategy:
+
+1. **Select**: Keep only the `.section` blocks that match the paper's actual content. Delete unused template section blocks. Add new ones if the paper has content patterns not covered by the defaults.
+
+2. **Order**: Arrange the kept section blocks according to the strategy's ordering rules from [Organization Strategy Reference](#organization-strategy-reference). The template's default section order (Values → Principles → Architecture → Mechanisms → Comparison → Discussion → Future → Methodology) is correct only for `paper-structure-aligned`. Other strategies reorder sections per their cognitive/narrative sequence.
+
+3. **Build per strategy**: Use the section building approach from [Strategy-Aware Section Ordering](#strategy-aware-section-ordering). For question-driven, start each section from the bare-bones template defined in the Organization Strategy Reference.
+
+4. **Regroup sidebar**: Rebuild the sidebar `<details>` groups and `<a>` links to match the strategy's grouping logic — not the template's default four groups. See Organization Strategy Reference for per-strategy sidebar grouping.
+
+5. **Renumber**: After reordering, renumber all `<span class="num">N</span>` elements in `<h2>` headings sequentially (1, 2, 3, ...). Use 📋 (no number) for supplementary/reference sections.
+
+6. **Add strategy marker**: Add a `data-strategy="{strategy}"` attribute to the `<body>` tag:
+
+```html
+<body data-strategy="cognition-first">
+```
+
+7. **Section titles per strategy**: For question-driven, use the generated question as the h2 heading text. For persona-driven, use conversational titles. For cognition-first, use problem-oriented titles where appropriate.
 
 Template provides pre-built section blocks for: values (mini-cards), principles (pboxes), architecture (tables), mechanisms (tables + code + trace), comparison, discussion (tension matrix + evidence), future directions, methodology.
-
-**Important**: After deleting or adding sections, renumber all `<span class="num">N</span>` elements in `<h2>` headings sequentially (1, 2, 3, ...) to keep section numbering contiguous. Use 📋 (no number) for supplementary/reference sections.
 
 ### A4.4 Adjust the sidebar
 
@@ -514,6 +772,9 @@ Before declaring the output complete, verify:
 24. **Table scroll indicator**: When a table overflows its container, a gradient fade appears on the right edge to indicate scrollability. Disappears when fully scrolled.
 25. **Section flash on :target**: When navigating to a section via anchor link (sidebar or h2 anchor), the section briefly flashes with a blue highlight (`section-flash` animation) to orient the reader.
 26. **No intermediate file references**: The final HTML is self-contained (CSS/JS inline, images as base64 data URIs). Grep for any local file paths that might have leaked — there should be no references to `paper_text.txt`, `figures_b64.json`, `section_*.html`, or `assembled_body.html`.
+27. **Strategy marker present**: The `<body>` tag has a `data-strategy` attribute matching the strategy chosen in Phase 0b (e.g., `data-strategy="cognition-first"`). Verify with: `grep -o 'data-strategy="[^"]*"' <output>.html`.
+28. **Strategy section ordering**: The h2 titles appear in the sequence specified by the chosen strategy's ordering rules (from Organization Strategy Reference). When the strategy is NOT paper-structure-aligned, the section order should NOT match the template's default order.
+29. **Strategy-specific heading style**: For question-driven, every h2 heading contains an actual question (ends with `？` or `?`). For persona-driven, section titles use conversational/practitioner-oriented language rather than academic section headings.
 
 ### Phase A5: Post-Verification Cleanup
 
@@ -521,9 +782,7 @@ After the HTML passes all quality checks, delete all intermediate files:
 
 ```bash
 rm -f <output-dir>/paper_text.txt \
-      <output-dir>/figures_b64.json \
-      <output-dir>/fix_figures.py \
-      <output-dir>/redistribute_figures.py
+      <output-dir>/figures_b64.json
 ```
 
 **What to keep**: Only `<paper>_reading_notes.html` — the self-contained final output.
@@ -608,7 +867,8 @@ The main agent analyzes the paper text and divides it into **N sections** (typic
     "text": "<full text of this section from the PDF>",
     "figures": ["1"],
     "formulas": ["eq1", "eq2", "eq3"],
-    "component_hints": ["callout.info", "grid-2", "table", "formula-display"]
+    "component_hints": ["callout.info", "grid-2", "table", "formula-display"],
+    "strategy": "paper-structure-aligned"
   },
   {
     "id": "profile",
@@ -617,19 +877,60 @@ The main agent analyzes the paper text and divides it into **N sections** (typic
     "text": "<full text of this section from the PDF>",
     "figures": [],
     "formulas": [],
-    "component_hints": ["table", "grid-2", "callout.warn"]
+    "component_hints": ["table", "grid-2", "callout.warn"],
+    "strategy": "paper-structure-aligned"
   },
   ...
 ]
 ```
 
-**Rules for section division:**
-- Follow the paper's own heading structure (Section 2, Section 3, etc.)
-- Combine short adjacent sections if needed (e.g., "Discussion + Future Work" → one section)
+**Example: cognition-first section assignment** (merged thematic unit):
+
+```json
+{
+  "id": "design_decisions",
+  "num": 3,
+  "title": "Key Design Decisions",
+  "text": "<merged text from paper Sections 3 and 4>",
+  "figures": ["1", "2"],
+  "formulas": ["eq3", "eq5"],
+  "component_hints": ["table", "callout.warn", "callout.success"],
+  "strategy": "cognition-first",
+  "position_context": "Section 3 of 6. Preceded by: 'Core Idea'. Followed by: 'How It Works'."
+}
+```
+
+**Example: question-driven section assignment** (cross-boundary text assembly):
+
+```json
+{
+  "id": "q3_safety_usability",
+  "num": 3,
+  "title": "系统如何平衡安全性和用户体验？",
+  "text": "<relevant passages from Sections 5 and 11>",
+  "figures": ["4"],
+  "formulas": [],
+  "component_hints": ["table", "callout.warn", "callout.success"],
+  "strategy": "question-driven",
+  "previously_defined_concepts": ["deny-first evaluation", "permission modes", "graduated trust spectrum"],
+  "question_context": "Question 3 of 5. Preceding: Q2 (权限系统如何工作？). Following: Q4 (上下文窗口不够用怎么办？)."
+}
+```
+
+**Rules for section division — strategy-dependent**:
+
+| Strategy | Section Division Logic |
+|----------|----------------------|
+| **paper-structure-aligned** | Follow the paper's own heading structure (Section 2, Section 3, etc.). Combine short adjacent sections if needed. |
+| **cognition-first** | Merge paper sections into thematic units per strategy template (e.g., Intro + Background → "Problem & Motivation"). Target 5-7 merged sections. When merging, `text` = concatenated text from source sections, `figures` = union of source sections' figure IDs, `formulas` = union of source sections' formula IDs. |
+| **question-driven** | (1) Generate 4-8 questions from paper content. (2) For each question, extract relevant text from `paper_text.txt` using grep+Read (two-stage method to avoid context overflow). Do NOT load the entire paper into context. (3) `text` = assembled relevant passages, `figures` = figures referenced in those passages (may overlap across questions). (4) Attach `previously_defined_concepts` — concepts already defined by earlier questions, to prevent re-definition. |
+| **persona-driven** | Same merging logic as cognition-first. Additional: `persona_context` field with 1-2 sentence framing guidance for conversational tone. |
+
+**General rules (all strategies)**:
 - Target 2000–4000 Chinese characters per section for optimal sub-agent output
-- Assign figures to the section where they are first referenced in the body text
-- Assign formulas to the section where they are defined (not just cited)
+- Assign formulas to the section where they are defined (not just cited). Formulas travel with their surrounding text.
 - `component_hints` guide the sub-agent on which HTML components to use
+- Include `strategy` field in every section assignment JSON entry
 
 ## Phase B3: Parallel Section Writing
 
@@ -642,10 +943,15 @@ Each sub-agent receives this prompt structure:
 ```
 You are writing ONE section of an academic paper reading note in {annotation_language}.
 
+## Organization Strategy
+This note uses the **{strategy}** organization strategy.
+{strategy_guidance}
+
 ## Your Section
 - Section number: {num}
 - Section ID: {id}
 - Section title: {title}
+- Position in narrative: {position_context}
 
 ## Paper Text for This Section
 {text}
@@ -664,9 +970,10 @@ Caption reference: {figure_captions}
 {component_hints}
 
 ## Component Reference (inline catalog)
-{Insert the full Inline Component Catalog from the section below — all 22 components with their HTML snippets and usage notes.}
+{Insert the inline component catalog below. For the complete catalog (23 components), sub-agents may read references/component-catalog.md if they need a component not listed here.}
 
 ## Content Rules
+0. **Strategy awareness**: {strategy_specific_rule}
 1. Write in {annotation_language} (user's choice from Phase 0b). Preserve technical terms, author names, numbers.
 2. Insert figures ONLY as `<!-- FIG:N -->` on its own line. NEVER use `<figure>`, `<img>`, or base64.
    Each figure should appear AT MOST ONCE per section.
@@ -684,47 +991,38 @@ Caption reference: {figure_captions}
 8. **Component intent**: Choose the component that matches what you're trying to SAY, not just what fits the data shape.
 ```
 
-### Inline Component Catalog for Sub-Agents
+**Strategy-specific template values for sub-agent prompts**:
 
-Include this catalog in every sub-agent prompt:
+| Placeholder | paper-structure | cognition-first | question-driven | persona-driven |
+|---|---|---|---|---|
+| `{strategy_guidance}` | "Follow the paper's own subsection structure within your section. Readers will cross-reference the original." | "Open with the conceptual framework or problem statement before showing mechanics. Build understanding layer by layer." | "Your section heading IS the question. The entire section is the answer. Lead with the answer, then explain." | "Write as if explaining to a fellow practitioner. Use 'you' framing for practical takeaways. Keep technical claims precise." |
+| `{position_context}` | "Section {num} of {total}" | "Section {num} of {total}. Preceded by: {prev_title}. Followed by: {next_title}." | "Question {num} of {total}. Preceding question: {prev_question}. Following question: {next_question}." | "Section {num} of {total} in the narrative arc. Preceded by: {prev_title}. Followed by: {next_title}." |
+| `{strategy_specific_rule}` | "Match the paper's own section structure faithfully. Do NOT add extra wrapper <div> elements — exactly one outer <div class='section'> wrapper." | "Your chapter should naturally flow from the preceding chapter's framework and set up claims for the next chapter to verify. Do NOT add extra wrapper <div> elements — exactly one outer <div class='section'> wrapper." | "Answer the question directly in the first sentence. Reference previously defined concepts ({previously_defined_concepts}) without re-defining them. Do NOT add extra wrapper <div> elements — exactly one outer <div class='section'> wrapper." | "Write section intro in conversational first/second-person. Technical claims remain precise. Figure captions use natural language (not academic 'Fig. X:' format). Do NOT add extra wrapper <div> elements — exactly one outer <div class='section'> wrapper." |
+
+### Component Reference for Sub-Agents
+
+Include this condensed reference in every sub-agent prompt. For the full catalog (23 components with HTML snippets), sub-agents may read `references/component-catalog.md` if they need a component not listed here.
 
 ```
-.callout — 6 types, each with a specific intent:
-  .info     — 📌 "Here's what the paper claims" (summary layer)
-  .purple   — 🏗️ "Here's WHY they designed it this way" (design motivation, insight layer)
-  .warn     — ⚠️  "This choice creates a tension with X" (trade-off, cross-section link)
-  .success  — ✅ "Here's what you should do" (actionable takeaway, insight layer)
-  .danger   — 🚨 "Here's a risk the paper doesn't discuss" (critical observation, insight layer)
-  .cyan     — 💡 "Methodology note / clarification" (supplementary, either layer)
-  <div class="callout info"><strong>📌 Title</strong><p>Body</p></div>
+## Quick Component Reference
 
-table — neutral data presentation ("here's what they found")
-  <table><tr><th style="width:20%">Col</th><th>Col</th></tr>
-  <tr><td><strong>Row</strong></td><td>Content</td></tr></table>
+.callout — 6 intent-mapped types (match type to cognitive intent):
+  .info     = "here's what the paper claims" (summary layer)
+  .purple   = "here's WHY this design choice" (design motivation)
+  .warn     = "this choice creates tension with X" (trade-off, cross-section link)
+  .success  = "here's what you should do" (actionable takeaway)
+  .danger   = "here's a risk the paper doesn't discuss" (critical observation)
+  .cyan     = methodology note / clarification
+  <div class="callout info"><strong>Title</strong><p>Body</p></div>
 
-.grid-2 — compare/contrast parallel concepts at a glance
-  <div class="grid-2"><div class="mini-card card-lift">
-  <strong>Title</strong><p>Description</p></div>...</div>
+table — neutral data: <table><tr><th>Col</th></tr><tr><td>...</td></tr></table>
+.grid-2 > .mini-card — compare parallel concepts side by side
+.pbox — numbered principle: .pn (number) + .pb (body) + .tag (labels)
+.tag — inline badge: <span class="tag bl">Label</span> (6 colors: bl gr or rd pu cy)
+.formula-display — $$\sum x_i$$ (display) / .formula-inline — $E=mc^2$ (inline)
+figure placeholder — <!-- FIG:N --> on its own line (NEVER <figure>/<img>/base64)
 
-.pbox — numbered principle/rule
-  <div class="pbox"><div class="pn">1</div><div class="pb">
-  <strong>Title</strong><span class="tag bl">Tag</span>
-  <p>Explanation</p></div></div>
-
-.tag — inline badge (6 colors: .bl .gr .or .rd .pu .cy)
-  <span class="tag bl">Label</span>
-
-.formula-display / .formula-inline — KaTeX math (always follow with an explanation in the user's chosen annotation language)
-  <div class="formula-display">$$\sum_{i=1}^n x_i$$</div>
-  <span class="formula-inline">$E = mc^2$</span>
-
-figure placeholder — use a comment tag, NOT <figure>/<img>/base64
-  <!-- FIG:N -->
-  Place on its own line. The assembly step replaces it with the actual figure HTML.
-
-Key CSS classes: .summary-grid (metrics dashboard), .callout (6 types with intent mapping),
-  .grid-2/.grid-3 (cards), table, .pbox, .tag, .formula-display, .formula-inline,
-  .mini-card, .card-lift
+For any component not listed here, read references/component-catalog.md.
 ```
 
 ### File Output Instructions (CRITICAL — placed at end intentionally)
@@ -780,7 +1078,9 @@ assert opens == closes, f'FAIL: div balance (open={opens}, close={closes})'
 
 If any assertion fails, **the entire section file MUST be rewritten** — do NOT attempt to Edit it manually.
 
-**Severity Note**: Clean Section Contract violations are the most severe pipeline errors. A single unbalanced div will corrupt the entire content area of the final HTML, and the cost of repair far exceeds rewriting the section. Therefore, rewriting is mandatory on failure — no exceptions.
+**Exception**: The B3.5b Coherence Agent (cognition-first strategy) may perform lightweight Edits for transition injection and terminology unification. These edits MUST be followed by immediate div balance validation (see B3.5b DIV SAFETY RULE). For all other phases, rewriting on failure remains mandatory.
+
+**Severity Note**: Clean Section Contract violations are the most severe pipeline errors. A single unbalanced div will corrupt the entire content area of the final HTML, and the cost of repair far exceeds rewriting the section. Therefore, rewriting is mandatory on failure — with the sole exception of B3.5b Coherence Agent edits that pass post-edit div validation.
 
 **Why this works**: 8 sections × ~25KB HTML = ~200KB would flood the main context.
 By writing to files, each sub-agent returns only ~50 bytes of metadata. The main
@@ -852,6 +1152,10 @@ Check:
   - Inner `<div>` count == `</div>` count
   - If imbalance found, set `fixes_needed: true` — do NOT attempt Edit repair
 - Figure refs: Are all <!-- FIG:N --> placeholders referencing figures that exist? No broken references?
+- **Coherence (simplified — cognition-first only)**: Read each section's h2 heading + first paragraph + last paragraph only (not the full section). Check:
+  - Does section N's opening naturally follow from section N-1's closing? (count as `transition_breaks`)
+  - Are core concept names consistent across section boundaries? (count as `terminology_inconsistencies`)
+  - Is the same concept defined in multiple sections? (count as `duplicate_definitions`)
 
 Output a structured report:
 
@@ -865,7 +1169,13 @@ Output a structured report:
       "issues": ["specific issue description"],
       "fixes_needed": true/false
     }
-  ]
+  ],
+  "coherence": {
+    "transition_breaks": 0,
+    "terminology_inconsistencies": 0,
+    "duplicate_definitions": 0,
+    "needs_coherence_pass": false
+  }
 }
 
 Then fix issues inline where possible:
@@ -874,6 +1184,68 @@ Then fix issues inline where possible:
 ```
 
 After the reviewer completes, if any section has `fixes_needed: true`, launch a new sub-agent to re-write that section. Use the corrected instructions and the reviewer's `issues[]` as guidance for what to fix. The new sub-agent overwrites the old `section_{id}.html`. At most one retry per section.
+
+**Coherence gate**: Check `coherence.needs_coherence_pass`:
+- If `false` → skip Phase B3.5b entirely, proceed to B4 Assembly. The sub-agents' `position_context` in their B3 prompts was sufficient for natural transitions between sections.
+- If `true` → proceed to Phase B3.5b below. At least 2 coherence issues were detected that merit attention.
+
+### Phase B3.5b: Coherence Validation (CONDITIONAL — only if B3.5 reports ≥2 coherence issues)
+
+When the organization strategy is `cognition-first`, run an additional **Coherence Agent** pass after the quality review. This is necessary because parallel sub-agents write their sections independently, but the cognition-first strategy requires a linear narrative arc with natural flow between sections.
+
+**Why needed**: Readers expect a cognitive narrative — "Problem → Core Idea → Design → Results → Limits" — where each section builds on the previous one. Sub-agents writing in isolation cannot ensure this flow.
+
+**Method: Pairwise checking**. The Coherence Agent checks adjacent section pairs rather than reading all sections at once, keeping context consumption bounded.
+
+```
+For each adjacent pair (section_i, section_{i+1}):
+  1. Read section_{i}.html and section_{i+1}.html
+  2. Check:
+     - Transition: Does section_{i+1} naturally follow from section_i? Or is there a "jump"?
+     - Concept consistency: Are core concepts named the same way in both sections?
+     - Definition before use: Are concepts defined in earlier sections before being referenced in later ones?
+     - Deduplication: Is the same concept defined in multiple sections? If so, keep the first definition, add a cross-reference in the later one.
+     - Claim-evidence chain: Does a claim made in an earlier section have a corresponding evidence mention in a later one?
+  3. Fix: Lightweight Edit to inject transition sentences, unify terminology, and remove duplicate definitions.
+     Do NOT rewrite content. If sections are severely disconnected, mark rather than repair.
+
+**⚠️ DIV SAFETY RULE (MANDATORY): After ALL Edits to a single section file
+are complete, validate div balance before moving to the next file:**
+
+```bash
+python -c "
+import re
+c = open('<output-dir>/section_{id}.html').read().strip()
+inner = re.sub(r'^<div class=\"section\"[^>]*>\s*', '', c)
+inner = re.sub(r'\s*</div>\s*$', '', inner)
+assert inner.count('<div ') == inner.count('</div>'), 'DIV IMBALANCE after coherence edits'
+print('OK')
+"
+```
+
+If the assertion fails: **revert ALL Edits to this file** (not just the last one).
+Restore the pre-coherence version of the file. Do NOT attempt to identify which
+specific Edit caused the imbalance — the cost of diagnosis exceeds the cost of
+reverting. This prevents Coherence Agent edits from introducing structural
+corruption into section HTML files.
+```
+
+**After pairwise checks**, a final global pass reads only the first paragraph + last paragraph of each section to verify the overall argument chain.
+
+**Output**: A modified set of `section_{id}.html` files with injected transitions and unified terminology.
+
+**Edge case**: If the paper has only 3-4 sections after cognition-first merging, the pairwise approach checks all pairs in 2-3 calls. If it has 7-8 sections, this is 6-7 calls. The cost scales linearly with section count but each call only reads 2 files (~6-10KB total).
+
+### Post-Coherence Validation
+
+After all coherence edits are complete, re-run the **Clean Section Contract** (from Phase B3) on EVERY section file that was modified by the Coherence Agent.
+
+For each modified file:
+1. Run the full Clean Section Contract validation (same Python assertions as Phase B3)
+2. If any assertion fails → discard all Coherence Agent edits to that file (revert to the pre-coherence version from the B3.5 quality review backup)
+3. Log which files were reverted and why
+
+This ensures that coherence improvements (transition injection, terminology unification) never come at the cost of structural integrity. A section whose div structure was corrupted by Edit operations is restored to its structurally valid pre-coherence state.
 
 ## Phase B4: Assembly
 
@@ -962,6 +1334,10 @@ B4 spans **four execution boundaries**: inside the Workflow script → main agen
 │                                                           │
 │   2. Write wrapper files (no base64 in context):           │
 │      head.html: template <head> through <body> opening    │
+│                 **Set <body data-strategy="{strategy}">**  │
+│                 to match the organization strategy chosen  │
+│                 in Phase 0b (or "paper-structure-aligned" │
+│                 if default).                                │
 │                 + intro section (title, meta, thesis)     │
 │                 + TL;DR section (summary grid)            │
 │      tail.html: takeaways section (callouts + table)      │
@@ -1051,9 +1427,7 @@ rm -f <output-dir>/paper_text.txt \
       <output-dir>/section_*.html \
       <output-dir>/sections_meta.json \
       <output-dir>/sections_raw.html \
-      <output-dir>/assembled_body.html \
-      <output-dir>/fix_figures.py \
-      <output-dir>/redistribute_figures.py
+      <output-dir>/assembled_body.html
 ```
 
 **What to keep**: Only `<paper>_reading_notes.html`.
@@ -1071,7 +1445,7 @@ grep -c 'paper_text.txt\|figures_b64.json\|section_.*\.html\|sections_raw\|assem
 
 ## Important Rules (Both Pipelines)
 
-- **Adapt, don't force-fit.** If the paper doesn't have design principles, don't create a principles section. Map content to the most natural component.
+- **Adapt, don't force-fit.** If the paper doesn't have design principles, don't create a principles section. Map content to the most natural component. If the chosen organization strategy would create an unnatural structure for this paper (e.g., question-driven on a pure position paper with no clear questions), fall back to paper-structure-aligned and note the reason in a comment.
 - **Be thorough but not exhaustive.** Cover the paper's key contributions deeply. Don't enumerate every minor detail.
 - **Prioritize insight over transcription.** Don't just copy the paper's text. Synthesize, connect ideas, highlight what matters.
 - **One HTML file, zero dependencies.** Everything is inline — no external CSS, JS, fonts, or images. The file must work offline.
@@ -1079,4 +1453,8 @@ grep -c 'paper_text.txt\|figures_b64.json\|section_.*\.html\|sections_raw\|assem
 - **In Parallel mode, sub-agents write HTML to files, never return HTML in their response.** Each sub-agent uses the Write tool to save `section_{id}.html` and returns the file path via structured JSON. This keeps the Workflow context lean (~50B per section instead of ~25KB). The component catalog, paper text, figure references, and formula LaTeX are inlined in each sub-agent's prompt — sub-agents should avoid re-reading shared files (template.html, component-catalog.md). If a sub-agent is unsure about a component pattern, it may read `references/component-catalog.md` once.
 - **Working directory encoding**: If your paths contain non-ASCII characters (Chinese, spaces, etc.), Python subprocess calls may encounter encoding issues. Mitigation: (a) pass `--output` with an ASCII-only path to Python scripts, (b) set `PYTHONIOENCODING=utf-8` in your shell, or (c) on Windows, use short paths (`dir /x` to find them).
 - **Section granularity matters.** Too many tiny sections produce fragmented notes. Too few large sections lose the benefit of parallelism. Aim for 4–8 sections.
+- **Strategy affects order, not content.** The organization strategy controls section ORDER and GROUPING. Content depth rules (Principles 2-4), component choice, and quality checks apply identically regardless of strategy. Never omit insight callouts or depth because a question-driven section "is short."
+- **Pipeline B + question-driven: use two-stage text extraction.** For question-driven in Pipeline B, B2 must NOT load the entire paper into context to extract passages. Instead: (1) generate questions, (2) grep keywords in paper_text.txt, (3) Read only matched passages. This prevents context overflow on long papers.
+- **Pipeline B + cognition-first: run B3.5b Coherence Agent.** After quality review, run pairwise coherence checks on adjacent sections. See Phase B3.5b for the full procedure.
+- **Pipeline B + persona-driven: warn the user.** Persona-driven requires a unified narrative voice that parallel sub-agents cannot maintain. Warn the user and recommend switching to Pipeline A.
 - **Clean up after verification.** Once the HTML passes all quality checks (all figures render, no broken references, dark mode works, sidebar links functional), delete all intermediate files. The final HTML is fully self-contained — every image is a base64 data URI, every style and script is inline. Run `grep -c 'paper_text.txt\|figures_b64.json\|section_.*\.html\|assembled_body' <paper>_reading_notes.html` — it must output `0`.

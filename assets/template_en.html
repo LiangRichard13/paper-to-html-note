@@ -290,7 +290,7 @@ figure.paper-fig figcaption{font-size:12.5px;color:var(--text2);margin-top:8px;
     throwOnError:false
   })"></script>
 </head>
-<body>
+<body data-strategy="[ORGANIZATION_STRATEGY]">
 
 <div id="progress-bar"></div>
 
@@ -300,13 +300,17 @@ figure.paper-fig figcaption{font-size:12.5px;color:var(--text2);margin-top:8px;
 <span class="top-badge">Paper Reading</span>
 <span class="top-meta"><strong>[PAPER_TITLE]</strong> &middot; [PAPER_VENUE] &middot; [PAPER_DATE]</span>
 <span class="top-spacer"></span>
-<button class="top-btn" onclick="toggleTheme()" title="Toggle dark/light mode">&#x1f313; Theme</button>
-<button class="top-btn" onclick="window.print()" title="Print">&#x1f5a8; Print</button>
+<button class="top-btn" onclick="toggleTheme()" title="Toggle dark/light mode">🌓 Theme</button>
+<button class="top-btn" onclick="window.print()" title="Print">🖨 Print</button>
 </div></div>
 
 <!-- ====== MAIN LAYOUT ====== -->
 <div class="container">
 
+<!-- NOTE: Sidebar groups and links are reordered based on the organization
+     strategy chosen in Phase 0b. The groups below are the DEFAULT
+     (paper-structure-aligned) layout. For other strategies, rebuild
+     groups and links per the Organization Strategy Reference. -->
 <!-- SIDEBAR -->
 <aside class="sidebar">
 <h3>&#x1f4d1; Table of Contents</h3>

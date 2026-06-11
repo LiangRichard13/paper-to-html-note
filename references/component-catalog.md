@@ -545,4 +545,4 @@ When generating HTML from a paper:
 3. **Skip if paper doesn't have**: Don't force-fit content into components. For example, if the paper has no "design principles", don't create a principle box section.
 4. **If the paper has figures**: Always include the FIGURES section — use the `SECTION: FIGURES` block from template.html. Place it after the architecture/taxonomy section (wherever diagrams are contextually relevant). Figures without analytical context are useless.
 5. **Combine when appropriate**: A paper might have both a comparison table AND a taxonomy table — use both.
-6. **Section ordering**: Follow the paper's own structure — intro first, then design/method, then results/analysis, then discussion/conclusion. Put summary/takeaways last.
+6. **Section ordering**: Determined by the chosen organization strategy (see SKILL.md Organization Strategy Reference). Default (paper-structure-aligned): follow the paper's own structure — intro first, then design/method, then results/analysis, then discussion/conclusion. Put summary/takeaways last. Other strategies (cognition-first, question-driven, persona-driven) reorder sections per their cognitive/narrative rules.
