@@ -1189,13 +1189,61 @@ goals and metric dimensions, including effectiveness, adaptivity, general</figca
 </div>
 
 </div><!-- /content -->
+
+<!-- ====== FLOATING NOTES PANEL ====== -->
+<aside class="notes-panel" id="notesPanel">
+<div class="notes-panel-handle" onclick="toggleNotesPanel()" title="展开/收起批注">
+<span class="arrow">◂</span>
+</div>
+<div class="notes-panel-header">
+<h4>📝 批注 <span class="notes-count" id="notesCount">0</span></h4>
+</div>
+<div class="notes-panel-body" id="notesList">
+<div class="note-empty" id="notesEmpty">
+<div class="note-empty-icon">📝</div>
+<p>选中文本后高亮</p>
+<p style="font-size:11px;margin-top:4px;opacity:.5">点击高亮区域添加批注</p>
+</div>
+</div>
+<div class="notes-panel-footer">
+<button style="color:var(--danger)" onclick="clearAllAnnotationsPrompt()">✕ 清除全部</button>
+</div>
+</aside>
+<div class="notes-overlay" onclick="toggleNotesPanel()"></div>
+
 </div><!-- /container -->
 
 <!-- Sidebar toggle (mobile) -->
 <button id="sidebar-toggle" onclick="toggleSidebar()" title="目录">☰</button>
 
+<!-- Notes toggle button -->
+<button id="notes-toggle" onclick="toggleNotesPanel()" title="批注面板">💡</button>
+
 <!-- Back to Top -->
 <button id="btt" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部">↑</button>
+
+<!-- ====== SELECTION POPUP ====== -->
+<div id="hl-popup">
+<span class="hl-swatch yellow" data-color="yellow" title="黄色高亮"></span>
+<span class="hl-swatch green" data-color="green" title="绿色高亮"></span>
+<span class="hl-swatch blue" data-color="blue" title="蓝色高亮"></span>
+<span class="hl-swatch pink" data-color="pink" title="粉色高亮"></span>
+<span class="hl-swatch orange" data-color="orange" title="橙色高亮"></span>
+<span class="hl-swatch purple" data-color="purple" title="紫色高亮"></span>
+</div>
+
+<!-- ====== STICKY NOTE EDITOR ====== -->
+<div class="sticky-editor" id="stickyEditor">
+<div class="sticky-pin"></div>
+<textarea id="stickyTextarea" placeholder="写下你的批注…" rows="3"></textarea>
+<div class="sticky-actions">
+<button class="sticky-cancel" onclick="closeStickyEditor(false)">取消</button>
+<button class="sticky-save" onclick="closeStickyEditor(true)">保存</button>
+</div>
+</div>
+
+<!-- Toast -->
+<div class="hl-toast" id="hlToast">⚠️ 无法高亮数学公式区域</div>
 
 <script>
 // ===============================================================
