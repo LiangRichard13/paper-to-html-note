@@ -22,6 +22,9 @@
   --radius: 12px; --radius-sm: 8px;
   --sans: -apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif;
   --mono: 'JetBrains Mono','Fira Code','Cascadia Code',monospace;
+  --hl-yellow: rgba(255,213,0,0.40);  --hl-green: rgba(0,200,83,0.30);
+  --hl-blue: rgba(41,121,255,0.30);   --hl-pink: rgba(255,64,129,0.30);
+  --hl-orange: rgba(255,152,0,0.35);  --hl-purple: rgba(156,39,176,0.30);
   /* Enhancement: optional Google Fonts (see design-system.md Part 1 for instructions) */
 }
 [data-theme="dark"] {
@@ -35,6 +38,10 @@
   --cyan: #22d3ee; --cyan-lt: #083344;
   --shadow: 0 1px 3px rgba(0,0,0,.25);
   --shadow-md: 0 4px 16px rgba(0,0,0,.4);
+  --hl-yellow: rgba(255,213,0,0.35);  --hl-green: rgba(0,200,83,0.30);
+  --hl-blue: rgba(41,121,255,0.35);   --hl-pink: rgba(255,64,129,0.35);
+  --hl-orange: rgba(255,152,0,0.35);  --hl-purple: rgba(156,39,176,0.35);
+  --sticky-bg: #2d2a1a;
 }
 
 /* ============================================================
@@ -87,6 +94,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 #btt{position:fixed;bottom:28px;right:28px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);opacity:0;transform:translateY(20px);transition:all .3s;z-index:150;font-family:var(--sans)}
 #btt.show{opacity:1;transform:translateY(0)}
 #btt:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+body.has-notes-open #btt{right:332px}
 
 /* ============================================================
    PART 3: Component Styles
@@ -276,6 +284,138 @@ figure.paper-fig figcaption{font-size:12.5px;color:var(--text2);margin-top:8px;
 .formula-array{display:block;text-align:center;padding:8px 16px;margin:8px 0;font-size:14px;font-family:var(--mono);overflow-x:auto}
 /* Hide fallback when KaTeX is active */
 .katex ~ .formula-inline,.katex ~ .formula-display,.katex ~ .formula-array{display:none}
+/* ============================================================
+   PART 6: Highlighter & Annotation System
+   ============================================================ */
+
+/* --- Sticky note base variables --- */
+:root{
+  --sticky-bg: #fffbe6; --sticky-bg-dark: #2d2a1a;
+  --sticky-shadow: 0 3px 10px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.06);
+}
+[data-theme="dark"]{--sticky-bg: #2d2a1a;}
+
+/* --- Highlighter marks --- */
+mark[class^="hl-"]{border-radius:2px;padding:0 2px;cursor:pointer;transition:all .2s;position:relative}
+mark.hl-yellow{background:rgba(255,213,0,.45);border-bottom:2px solid rgba(255,213,0,.6)}
+mark.hl-green{background:rgba(0,200,83,.35);border-bottom:2px solid rgba(0,200,83,.55)}
+mark.hl-blue{background:rgba(41,121,255,.35);border-bottom:2px solid rgba(41,121,255,.55)}
+mark.hl-pink{background:rgba(255,64,129,.35);border-bottom:2px solid rgba(255,64,129,.55)}
+mark.hl-orange{background:rgba(255,152,0,.40);border-bottom:2px solid rgba(255,152,0,.55)}
+mark.hl-purple{background:rgba(156,39,176,.35);border-bottom:2px solid rgba(156,39,176,.55)}
+mark[class^="hl-"]:hover{filter:brightness(.9);box-shadow:0 0 0 2px currentColor}
+mark[data-has-note="true"]::after{content:'📎';font-size:8px;position:absolute;top:-6px;right:-2px;pointer-events:none;line-height:1}
+mark[data-has-note="true"]{position:relative}
+mark[data-has-note="true"]:hover::before{
+  content:attr(data-note);
+  position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  background:var(--sticky-bg);color:var(--text);padding:7px 10px;
+  border-radius:3px 8px 8px 8px;box-shadow:var(--sticky-shadow);
+  font-size:12px;font-style:italic;line-height:1.4;white-space:normal;
+  max-width:260px;min-width:60px;z-index:400;pointer-events:none;
+}
+pre mark[class^="hl-"]{font-family:var(--mono);padding:0}
+mark.hl-flash{animation:hl-flash-pulse .8s ease-out}
+@keyframes hl-flash-pulse{0%{filter:brightness(1.6);transform:scale(1.04)}100%{filter:brightness(1);transform:scale(1)}}
+
+/* --- Selection popup (color palette only — new highlight) --- */
+#hl-popup{position:fixed;z-index:500;background:var(--card);border:1px solid var(--border);border-radius:24px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:8px 12px;display:none;align-items:center;gap:10px;font-size:0}
+#hl-popup.active{display:flex}
+#hl-popup .hl-swatch{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);cursor:pointer;transition:all .18s ease;display:inline-block;position:relative}
+#hl-popup .hl-swatch:hover{transform:scale(1.18);box-shadow:0 0 0 3px var(--accent-lt)}
+#hl-popup .hl-swatch.selected{transform:scale(1.15);border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-lt)}
+#hl-popup .hl-swatch.yellow{background:var(--hl-yellow)}
+#hl-popup .hl-swatch.green{background:var(--hl-green)}
+#hl-popup .hl-swatch.blue{background:var(--hl-blue)}
+#hl-popup .hl-swatch.pink{background:var(--hl-pink)}
+#hl-popup .hl-swatch.orange{background:var(--hl-orange)}
+#hl-popup .hl-swatch.purple{background:var(--hl-purple)}
+#hl-popup .hl-swatch.delete{background:var(--danger-lt);border-color:var(--danger);display:flex;align-items:center;justify-content:center}
+#hl-popup .hl-swatch.delete::after{content:'∅';font-size:14px;color:var(--danger);font-weight:700;line-height:1}
+#hl-popup .hl-swatch.delete:hover{background:var(--danger);border-color:var(--danger);box-shadow:0 0 0 3px rgba(220,38,38,.2)}
+#hl-popup .hl-swatch.delete:hover::after{color:#fff}
+#hl-popup .hl-divider{width:1px;height:22px;background:var(--border);margin:0 2px}
+#hl-popup .hl-edit-btn{background:var(--code-bg);border:1px solid var(--border);border-radius:16px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:var(--sans);color:var(--text);white-space:nowrap;display:flex;align-items:center;gap:4px;transition:all .15s}
+#hl-popup .hl-edit-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+#hl-popup .hl-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--warn);border-radius:var(--radius-sm);padding:8px 16px;font-size:13px;box-shadow:var(--shadow-md);z-index:600;display:none;white-space:nowrap;color:var(--warn)}
+#hl-popup .hl-toast.show{display:block}
+
+/* --- Sticky note editor (floating) --- */
+.sticky-editor{position:fixed;z-index:650;background:var(--sticky-bg);box-shadow:var(--sticky-shadow);border-radius:3px 14px 14px 14px;width:260px;padding:14px;display:none;flex-direction:column;gap:10px;transform:rotate(.5deg)}
+.sticky-editor.active{display:flex;animation:sticky-pop .25s cubic-bezier(.34,1.56,.64,1)}
+@keyframes sticky-pop{0%{transform:rotate(.5deg) scale(.7);opacity:0}100%{transform:rotate(.5deg) scale(1);opacity:1}}
+.sticky-editor textarea{border:none;background:transparent;padding:0;font-size:13px;font-family:var(--sans);color:var(--text);width:100%;resize:vertical;min-height:70px;outline:none;line-height:1.55}
+.sticky-editor .sticky-actions{display:flex;gap:6px;justify-content:flex-end}
+.sticky-editor .sticky-actions button{border:none;border-radius:14px;padding:4px 14px;font-size:11.5px;cursor:pointer;font-family:var(--sans);font-weight:500;transition:all .15s}
+.sticky-editor .sticky-save{background:var(--accent);color:#fff}
+.sticky-editor .sticky-save:hover{filter:brightness(1.15)}
+.sticky-editor .sticky-cancel{background:transparent;color:var(--text2);border:1px solid var(--border)!important}
+.sticky-editor .sticky-cancel:hover{background:var(--code-bg)}
+.sticky-editor .sticky-pin{position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#e74c3c,#c0392b);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+
+/* --- Floating notes panel (slide from right) --- */
+.notes-panel{position:fixed;top:0;right:0;width:320px;height:100vh;z-index:190;background:var(--card);border-left:1px solid var(--border);box-shadow:-4px 0 20px rgba(0,0,0,.08);transform:translateX(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.notes-panel.open{transform:translateX(0)}
+.notes-panel-handle{position:absolute;left:-28px;top:50%;transform:translateY(-50%);width:28px;height:64px;background:var(--card);border:1px solid var(--border);border-right:none;border-radius:8px 0 0 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:14px;transition:all .2s;z-index:191;box-shadow:-2px 0 6px rgba(0,0,0,.04)}
+.notes-panel-handle:hover{color:var(--accent);background:var(--bg)}
+.notes-panel-handle .arrow{transition:transform .35s cubic-bezier(.4,0,.2,1)}
+.notes-panel.open .notes-panel-handle .arrow{transform:rotate(180deg)}
+.notes-panel-body{flex:1;overflow-y:auto;padding:16px 14px 16px 10px}
+.notes-panel-body::-webkit-scrollbar{width:3px}
+.notes-panel-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.notes-panel-header{display:flex;align-items:center;justify-content:space-between;padding:16px 14px 10px 14px;border-bottom:1px solid var(--border)}
+.notes-panel-header h4{font-size:13px;font-weight:600;color:var(--text);margin:0;display:flex;align-items:center;gap:6px}
+.notes-count{background:var(--accent);color:#fff;padding:1px 8px;border-radius:10px;font-size:10.5px;font-weight:700}
+.notes-panel-footer{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px}
+.notes-panel-footer button{flex:1;background:var(--code-bg);border:1px solid var(--border);border-radius:16px;padding:6px 10px;font-size:11px;cursor:pointer;font-family:var(--sans);color:var(--text2);transition:all .15s}
+.notes-panel-footer button:hover{background:var(--danger-lt);color:var(--danger);border-color:var(--danger)}
+.notes-panel-footer button:first-child:hover{background:var(--accent-lt);color:var(--accent);border-color:var(--accent)}
+
+/* --- Note items as mini sticky cards --- */
+.note-item{background:var(--sticky-bg);box-shadow:0 1px 3px rgba(0,0,0,.06);border-radius:3px 10px 10px 10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:all .2s;transform:rotate(.3deg);position:relative}
+.note-item:nth-child(2n){transform:rotate(-.2deg)}
+.note-item:nth-child(3n){transform:rotate(.5deg)}
+.note-item:hover{transform:rotate(0)!important;box-shadow:var(--sticky-shadow);z-index:2}
+.note-item.expanded{transform:rotate(0)!important}
+.note-item-color{position:absolute;top:0;left:-1px;width:4px;height:100%;border-radius:3px 0 0 10px;background:var(--hl-color)}
+.note-item-text{font-size:12.5px;color:var(--text);line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;padding-left:6px}
+.note-item.expanded .note-item-text{-webkit-line-clamp:unset;display:block}
+.note-item-annotation{font-size:12px;color:var(--text2);margin-top:4px;padding-left:6px;font-style:italic;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.note-item.expanded .note-item-annotation{-webkit-line-clamp:unset;display:block;font-style:normal}
+.note-item-annotation:empty{display:none}
+.note-item-meta{display:flex;align-items:center;gap:8px;margin-top:4px;padding-left:6px}
+.note-item-time{font-size:10px;color:var(--text2);opacity:.5}
+.note-item-actions{display:flex;gap:4px;margin-left:auto;opacity:0;transition:opacity .15s}
+.note-item:hover .note-item-actions{opacity:1}
+.note-item-actions button{background:none;border:1px solid var(--border);border-radius:10px;width:22px;height:22px;font-size:10px;cursor:pointer;color:var(--text2);display:flex;align-items:center;justify-content:center;padding:0;transition:all .15s}
+.note-item-actions button:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.note-item-actions button.del-btn:hover{background:var(--danger);color:#fff;border-color:var(--danger)}
+.note-empty{text-align:center;color:var(--text2);padding:40px 10px;font-size:12px;line-height:1.5}
+.note-empty-icon{font-size:32px;margin-bottom:8px;opacity:.3}
+
+/* Notes overlay (mobile backdrop) */
+.notes-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.3);z-index:185}
+
+/* Old notes toggle — remove */
+#notes-toggle{display:none!important}
+
+/* --- Responsive --- */
+@media(max-width:960px){
+  .notes-panel{width:300px;transform:translateX(100%)}
+  .notes-panel.open{transform:translateX(0)}
+  .notes-panel-handle{display:none}
+  .notes-overlay.active{display:block}
+  /* Mobile toggle button */
+  #notes-toggle{display:flex!important;position:fixed;bottom:76px;right:76px;z-index:195;width:40px;height:40px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--text);font-size:16px;cursor:pointer;box-shadow:var(--shadow-md);font-family:var(--sans);align-items:center;justify-content:center;transition:all .2s}
+  #notes-toggle:hover{background:var(--accent-lt);color:var(--accent)}
+  #notes-toggle.has-notes{color:var(--accent);border-color:var(--accent)}
+}
+
+/* --- Print --- */
+@media print{
+  .notes-panel,.notes-panel-handle,#notes-toggle,#hl-popup,.notes-overlay,.sticky-editor{display:none!important}
+  mark[class^="hl-"]{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style>
 
 <!-- KaTeX for formula rendering (optional: remove if paper has no math) -->
@@ -288,7 +428,7 @@ figure.paper-fig figcaption{font-size:12.5px;color:var(--text2);margin-top:8px;
       {left:'$',right:'$',display:false}
     ],
     throwOnError:false
-  })"></script>
+  });/* KaTeX rendered — annotation restore triggered by init */"></script>
 </head>
 <body>
 
@@ -1250,6 +1390,259 @@ function toggleSidebar(){
     const c=()=>w.classList.toggle('is-overflow',w.scrollWidth>w.clientWidth+1);
     c(); window.addEventListener('resize',c);
   });
+})();
+// ===============================================================
+// PART 10: Highlighter & Annotation System
+// ===============================================================
+
+/* --- State --- */
+let annotations = [];
+let pendingSelection = null;
+let activeAnnotationId = null; // track which highlight we're editing (click-on-highlight flow)
+
+function annotationId(){return 'hl_'+Date.now()+'_'+Math.random().toString(36).slice(2,6)}
+
+/* --- Text offset helpers --- */
+function textOffsetOf(ancestor,targetNode,targetOffset){
+  const w=document.createTreeWalker(ancestor,NodeFilter.SHOW_TEXT);
+  let acc=0,node;
+  while((node=w.nextNode())){if(node===targetNode)return acc+targetOffset;acc+=node.textContent.length}
+  return-1;
+}
+function textNodeAtOffset(ancestor,offset){
+  const w=document.createTreeWalker(ancestor,NodeFilter.SHOW_TEXT);
+  let acc=0,node;
+  while((node=w.nextNode())){const len=node.textContent.length;if(offset>=acc&&offset<=acc+len)return{node,off:offset-acc};acc+=len}
+  return null;
+}
+
+/* --- Serialization --- */
+function serializeSelection(){
+  const sel=window.getSelection();
+  if(!sel||sel.isCollapsed||sel.rangeCount===0)return null;
+  const range=sel.getRangeAt(0),contentEl=document.querySelector('.content');
+  if(!contentEl.contains(range.startContainer)||!contentEl.contains(range.endContainer))return null;
+  const s=textOffsetOf(contentEl,range.startContainer,range.startOffset),e=textOffsetOf(contentEl,range.endContainer,range.endOffset);
+  if(Math.abs(e-s)<1)return null;
+  // KaTeX check
+  let n=range.startContainer;while(n&&n!==contentEl){if(n.classList&&n.classList.contains('katex'))return'KATEX';n=n.parentNode}
+  n=range.endContainer;while(n&&n!==contentEl){if(n.classList&&n.classList.contains('katex'))return'KATEX';n=n.parentNode}
+  return{startOffset:s,endOffset:e,text:range.toString().trim()};
+}
+function getTextNodesInRange(range){
+  const nodes=[],iter=document.createNodeIterator(range.commonAncestorContainer,NodeFilter.SHOW_TEXT,{acceptNode:n=>range.intersectsNode(n)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT});
+  let node;while((node=iter.nextNode())){const s=(node===range.startContainer)?range.startOffset:0,e=(node===range.endContainer)?range.endOffset:node.textContent.length;if(e>s)nodes.push({node,start:s,end:e})}
+  return nodes;
+}
+function applyMarkWrapper(range,color,id,hasNote){
+  const segs=getTextNodesInRange(range);
+  for(const seg of segs){
+    const sr=document.createRange();sr.setStart(seg.node,seg.start);sr.setEnd(seg.node,seg.end);
+    const mk=document.createElement('mark');mk.className='hl-'+color;mk.dataset.annotationId=id;
+    if(hasNote){mk.dataset.hasNote='true';mk.dataset.note=annotations.find(a=>a.id===id)?.note||''}
+    try{sr.surroundContents(mk)}catch(e){const ext=sr.extractContents();mk.appendChild(ext);sr.insertNode(mk)}
+  }
+}
+function textOffsetToRange(ancestor,so,eo){
+  const s=textNodeAtOffset(ancestor,so),e=textNodeAtOffset(ancestor,eo);
+  if(!s||!e)return null;const r=document.createRange();r.setStart(s.node,s.off);r.setEnd(e.node,e.off);return r;
+}
+function stripExistingHighlights(container){
+  container.querySelectorAll('mark[class^="hl-"]').forEach(mk=>{
+    const p=mk.parentNode;while(mk.firstChild)p.insertBefore(mk.firstChild,mk);p.removeChild(mk);p.normalize();
+  });
+}
+function bindMarkClicks(){
+  document.querySelectorAll('mark[class^="hl-"]').forEach(mk=>{
+    mk.onclick=function(e){e.stopPropagation();showHighlightPopup(e,this.dataset.annotationId)}
+  });
+}
+function restoreHighlights(){
+  const ce=document.querySelector('.content');if(!ce)return;
+  stripExistingHighlights(ce);
+  const sorted=[...annotations].sort((a,b)=>a.startOffset-b.startOffset);
+  for(const a of sorted){const r=textOffsetToRange(ce,a.startOffset,a.endOffset);if(r)applyMarkWrapper(r,a.color,a.id,!!a.note)}
+  bindMarkClicks();renderNotesList();
+}
+
+/* --- Persistence --- */
+function saveAnnotations(){try{localStorage.setItem('ppr-note-annotations',JSON.stringify(annotations))}catch(e){}}
+function loadAnnotations(){try{const d=localStorage.getItem('ppr-note-annotations');if(d){annotations=JSON.parse(d);restoreHighlights()}}catch(e){}}
+
+/* --- Popup --- */
+function showPopup(x,y,forHighlight){
+  const pop=document.getElementById('hl-popup');if(!pop)return;
+  // Clear swatch selection
+  pop.querySelectorAll('.hl-swatch').forEach(s=>s.classList.remove('selected'));
+  // On highlight edit: also show delete + edit button
+  const existingDivider=pop.querySelector('.hl-divider'),existingBtn=pop.querySelector('.hl-edit-btn');
+  if(forHighlight){
+    if(!existingDivider){const d=document.createElement('div');d.className='hl-divider';pop.appendChild(d)}
+    // Add delete swatch
+    if(!pop.querySelector('.hl-swatch.delete')){const ds=document.createElement('span');ds.className='hl-swatch delete';ds.title='删除高亮';ds.onclick=function(e){e.stopPropagation();deleteAnnotation(activeAnnotationId);hidePopup()};pop.appendChild(ds)}
+    // Add edit button
+    if(!existingBtn){const eb=document.createElement('button');eb.className='hl-edit-btn';eb.textContent='✎ 批注';eb.onclick=function(e){e.stopPropagation();const mk=document.querySelector('mark[data-annotation-id="'+activeAnnotationId+'"]');if(mk){const r=mk.getBoundingClientRect();openStickyEditor(r.right+10,r.top,activeAnnotationId)}hidePopup()};pop.appendChild(eb)}
+  } else {
+    if(existingDivider)existingDivider.remove();
+    const ds=pop.querySelector('.hl-swatch.delete');if(ds)ds.remove();
+    if(existingBtn)existingBtn.remove();
+  }
+  // Position
+  pop.style.left=Math.min(x,window.innerWidth-pop.clientWidth-10)+'px';
+  pop.style.top=Math.min(y,window.innerHeight-pop.clientHeight-10)+'px';
+  pop.classList.add('active');
+}
+function hidePopup(){const pop=document.getElementById('hl-popup');if(pop)pop.classList.remove('active');activeAnnotationId=null}
+function clearSelectionState(){pendingSelection=null;hidePopup();window.getSelection()?.removeAllRanges()}
+function showToast(msg,d){const t=document.getElementById('hlToast');if(!t)return;t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d||2000)}
+
+/* --- Create highlight (step 1: select text, pick color) --- */
+function confirmHighlight(color){
+  if(!pendingSelection)return;
+  const id=annotationId(),ann={id,color,startOffset:pendingSelection.startOffset,endOffset:pendingSelection.endOffset,text:pendingSelection.text,note:'',createdAt:Date.now(),updatedAt:Date.now()};
+  annotations.push(ann);saveAnnotations();
+  const ce=document.querySelector('.content'),range=textOffsetToRange(ce,ann.startOffset,ann.endOffset);
+  if(range){applyMarkWrapper(range,ann.color,ann.id,false);bindMarkClicks()}
+  clearSelectionState();renderNotesList();
+}
+
+/* --- Show popup for existing highlight (step 2: recolor/delete/edit) --- */
+function showHighlightPopup(e,id){
+  activeAnnotationId=id;e.stopPropagation();
+  // Pre-select current color
+  const ann=annotations.find(a=>a.id===id);if(!ann)return;
+  const pop=document.getElementById('hl-popup');if(!pop)return;
+  pop.querySelectorAll('.hl-swatch').forEach(s=>{s.classList.remove('selected');if(s.dataset.color===ann.color)s.classList.add('selected')});
+  showPopup(e.clientX||e.touches?.[0]?.clientX||100,e.clientY||e.touches?.[0]?.clientY||100,true);
+}
+
+/* --- Swatch clicks --- */
+document.addEventListener('click',function(e){
+  const sw=e.target.closest('.hl-swatch');if(!sw||sw.classList.contains('delete'))return;
+  const color=sw.dataset.color;if(!color)return;
+  if(activeAnnotationId){
+    // Recolor existing highlight
+    const ann=annotations.find(a=>a.id===activeAnnotationId);if(!ann)return;
+    ann.color=color;ann.updatedAt=Date.now();saveAnnotations();
+    document.querySelectorAll('mark[data-annotation-id="'+activeAnnotationId+'"]').forEach(mk=>{
+      mk.className='hl-'+color;
+    });
+    renderNotesList();hidePopup();
+  } else if(pendingSelection){
+    confirmHighlight(color);
+  }
+});
+
+/* --- Selection handler --- */
+function onSelection(e){
+  setTimeout(()=>{
+    if(activeAnnotationId){/* Don't steal focus from highlight edit */return}
+    const r=serializeSelection();if(!r)return;
+    if(r==='KATEX'){showPopup(e.clientX||e.changedTouches?.[0]?.clientX||100,e.clientY||e.changedTouches?.[0]?.clientY||100,false);showToast('⚠️ 无法高亮数学公式区域');setTimeout(hidePopup,1800);return}
+    pendingSelection=r;showPopup(e.clientX||e.changedTouches?.[0]?.clientX||100,e.clientY||e.changedTouches?.[0]?.clientY||100,false);
+  },50);
+}
+document.addEventListener('mouseup',onSelection);
+document.addEventListener('touchend',function(e){setTimeout(()=>onSelection(e),300)});
+
+/* Dismiss popup on outside click */
+document.addEventListener('mousedown',function(e){
+  if(e.target.closest('#hl-popup')||e.target.closest('.sticky-editor'))return;
+  if(pendingSelection&&!activeAnnotationId){clearSelectionState()}
+  if(activeAnnotationId&&!e.target.closest('mark[class^="hl-"]')){hidePopup()}
+});
+
+/* --- Sticky editor --- */
+let stickyEditId=null;
+function openStickyEditor(x,y,id){
+  stickyEditId=id;const se=document.getElementById('stickyEditor'),ta=document.getElementById('stickyTextarea');
+  if(!se||!ta)return;
+  const ann=annotations.find(a=>a.id===id);ta.value=ann?ann.note||'':'';
+  // Show hidden element first so it has dimensions, then position
+  se.classList.add('active');
+  const W=260,H=se.clientHeight||200;
+  let px=x+10,py=y+10;
+  if(px+W>window.innerWidth-10)px=x-W-10;
+  if(py+H>window.innerHeight-10)py=y-H-10;
+  if(px<10)px=10;if(py<10)py=10;
+  se.style.left=px+'px';se.style.top=py+'px';ta.focus();
+}
+function closeStickyEditor(save){
+  if(!stickyEditId)return;
+  if(save){
+    const ann=annotations.find(a=>a.id===stickyEditId),ta=document.getElementById('stickyTextarea');
+    if(ann&&ta){ann.note=ta.value.trim();ann.updatedAt=Date.now();saveAnnotations();
+      // Update DOM marks
+      document.querySelectorAll('mark[data-annotation-id="'+stickyEditId+'"]').forEach(mk=>{
+        if(ann.note){mk.dataset.hasNote='true';mk.dataset.note=ann.note}else{mk.removeAttribute('data-has-note');mk.removeAttribute('data-note')}
+      });
+    }
+  }
+  document.getElementById('stickyEditor').classList.remove('active');stickyEditId=null;renderNotesList();
+}
+// Auto-save on click outside
+document.addEventListener('mousedown',function(e){
+  if(stickyEditId&&!e.target.closest('.sticky-editor')&&!e.target.closest('mark[class^="hl-"]')&&!e.target.closest('.note-item-actions')&&!e.target.closest('#hl-popup')){
+    closeStickyEditor(true);
+  }
+});
+
+/* --- Notes panel --- */
+function toggleNotesPanel(){
+  const p=document.getElementById('notesPanel'),o=document.querySelector('.notes-overlay'),t=document.getElementById('notes-toggle');
+  if(!p)return;
+  if(window.innerWidth<960){
+    p.classList.toggle('open');if(o)o.classList.toggle('active');
+    document.body.style.overflow=p.classList.contains('open')?'hidden':'';
+  }else{p.classList.toggle('open')}
+  if(t)t.textContent=p.classList.contains('open')?'✕':'💡';
+  document.body.classList.toggle('has-notes-open',p.classList.contains('open'));
+  try{localStorage.setItem('ppr-note-panel-open',p.classList.contains('open')?'true':'false')}catch(e){}
+}
+
+function renderNotesList(){
+  const list=document.getElementById('notesList'),count=document.getElementById('notesCount'),toggle=document.getElementById('notes-toggle');
+  if(!list)return;
+  if(annotations.length===0){
+    list.innerHTML='<div class="note-empty"><div class="note-empty-icon">📝</div><p>选中文本后高亮</p><p style="font-size:11px;margin-top:4px;opacity:.5">点击高亮区域添加批注</p></div>';
+    if(count)count.textContent='0';if(toggle)toggle.classList.remove('has-notes');return;
+  }
+  if(count)count.textContent=annotations.length;if(toggle)toggle.classList.add('has-notes');
+  const sorted=[...annotations].sort((a,b)=>b.createdAt-a.createdAt);
+  list.innerHTML=sorted.map(a=>'<div class="note-item" data-id="'+a.id+'" onclick="scrollToAnnotation(\''+a.id+'\')">'+
+    '<div class="note-item-color" style="--hl-color:var(--hl-'+a.color+')"></div>'+
+    '<div class="note-item-text" title="'+escHtml(a.text)+'">'+escHtml(a.text)+'</div>'+
+    (a.note?'<div class="note-item-annotation">'+escHtml(a.note)+'</div>':'')+
+    '<div class="note-item-meta"><span class="note-item-time">'+new Date(a.createdAt).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})+'</span>'+
+    '<div class="note-item-actions" onclick="event.stopPropagation()">'+
+    '<button onclick="openStickyEditor(event.clientX,event.clientY,\''+a.id+'\')" title="编辑批注">✎</button>'+
+    '<button class="del-btn" onclick="deleteAnnotation(\''+a.id+'\')" title="删除">✕</button></div></div></div>').join('');
+}
+
+function escHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+function scrollToAnnotation(id){
+  const mk=document.querySelector('mark[data-annotation-id="'+id+'"]');if(mk){mk.scrollIntoView({behavior:'smooth',block:'center'});mk.classList.add('hl-flash');setTimeout(()=>mk.classList.remove('hl-flash'),800)}
+  const item=document.querySelector('.note-item[data-id="'+id+'"]');if(item)item.classList.toggle('expanded');
+}
+
+function deleteAnnotation(id){
+  if(!confirm('删除此批注？'))return;
+  annotations=annotations.filter(a=>a.id!==id);saveAnnotations();
+  document.querySelectorAll('mark[data-annotation-id="'+id+'"]').forEach(mk=>{const p=mk.parentNode;while(mk.firstChild)p.insertBefore(mk.firstChild,mk);p.removeChild(mk);p.normalize()});
+  hidePopup();renderNotesList();
+}
+
+function clearAllAnnotationsPrompt(){
+  if(!confirm('确定清除所有高亮和批注？此操作不可撤销。'))return;
+  annotations=[];saveAnnotations();stripExistingHighlights(document.querySelector('.content'));renderNotesList();
+  document.getElementById('notesPanel')?.classList.remove('open');
+}
+
+/* --- Init --- */
+(function(){
+  try{const o=localStorage.getItem('ppr-note-panel-open');if(o==='true'){document.getElementById('notesPanel')?.classList.add('open');document.body.classList.add('has-notes-open')}}catch(e){}
+  const wc=()=>{if(document.querySelector('.content')){loadAnnotations()}else setTimeout(wc,200)};setTimeout(wc,300);
 })();
 </script>
 

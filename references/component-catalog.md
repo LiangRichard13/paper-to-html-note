@@ -538,6 +538,38 @@ When a figure is referenced multiple times within the HTML (e.g., the same archi
 
 ## Adaptation Rules
 
+### Component 24: In-Browser Highlighter & Annotation System
+
+**What**: A complete client-side annotation system embedded in the HTML output. Users highlight text with a 6-color palette, then click highlights to recolor/delete/edit notes via a floating sticky note editor. All annotations are listed in a sliding right-side panel.
+
+**When**: Always included (auto-enabled by CSS/JS in the template). Not visible until the user interacts.
+
+**Two-step interaction flow**:
+1. **Select text → pick color** → text is highlighted immediately (palette has only color swatches).
+2. **Click existing highlight** → palette expands with: color swatches, ∅ delete button, ✎ edit button. Clicking edit opens a floating **sticky note editor** where the user writes their annotation.
+
+**Architecture**:
+- Highlight marks: `<mark class="hl-{color}" data-annotation-id="...">` with `data-has-note` for annotated content. Annotated marks show a 📎 paperclip indicator.
+- Sticky note editor: fixed-position `.sticky-editor` with warm paper texture background, subtle rotation (0.5°), pin graphic, spring animation on open.
+- Notes panel: `.notes-panel` slides from right edge (320px wide), default collapsed showing only a 28px arrow handle. Uses `transform: translateX(calc(100% - 36px))` transition, never pushes content.
+- Notes list: Each item rendered as a mini sticky card (`transform: rotate(0.3deg)` alternating angles), with color bar, truncated text, timestamp, and hover-revealed edit/delete buttons.
+- Persistence: localStorage key `ppr-note-annotations`, save on every mutation, restore on page load.
+
+**Key CSS variables**: `--hl-yellow` through `--hl-purple` (highlighter colors), `--sticky-bg` (note paper background), `--sticky-shadow` (layered paper shadow).
+
+**Key HTML IDs**: `#notesPanel` (sliding panel), `#hl-popup` (color palette), `#stickyEditor` (floating note), `#stickyTextarea`, `#hlToast` (warning messages), `#notes-toggle` (mobile toggle only).
+
+**Key JS functions**: `serializeSelection()`, `applyMarkWrapper()`, `restoreHighlights()`, `confirmHighlight(color)`, `showHighlightPopup(e,id)`, `bindMarkClicks()`, `openStickyEditor()`, `closeStickyEditor()`, `renderNotesList()`, `toggleNotesPanel()`.
+
+**Caveats**:
+- Highlights use text character offsets (not DOM paths) — works because `.content` `textContent` is stable
+- On page reload, highlights are stripped and re-applied from annotations data (clean-state strategy)
+- Overlapping highlights create nested `<mark>` elements; CSS cascade handles visual precedence
+- KaTeX math formula regions are automatically excluded from highlighting
+- The popup dynamically adds/removes the delete swatch and edit button depending on whether it's a new highlight (no delete/edit) or editing an existing one
+
+---
+
 When generating HTML from a paper:
 
 1. **Always include**: Page shell, meta-row, at least one callout.info (core thesis), sidebar, footer

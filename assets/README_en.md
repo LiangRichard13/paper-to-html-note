@@ -32,6 +32,7 @@ Convert academic CS/SE PDF papers into **self-contained, interactive HTML readin
 - 🎯 **4 organization strategies** — choose how content is ordered based on your reading intent
 - 🔎 **Paper type detection** — automatic classification (system/algorithm/survey/empirical/position) to recommend optimal strategy
 - 📝 **Formula pre-extraction** — formulas transcribed to LaTeX before section reorganization, preserving PDF page context
+- 🖍 **In-browser highlighter & annotations** — highlight text with 6 fluorescent colors; click highlights to recolor, delete, or open a sticky note editor; sliding right panel manages all annotations with localStorage persistence
 
 ---
 
@@ -167,6 +168,7 @@ A real-world reading note generated from **"Towards Personalized LLM-Powered Age
 - Insight callouts (design motivation, cross-section links, practical takeaways, critical observations)
 - Executive summary dashboard with key metrics
 - Taxonomy table, comparison table, and future directions cards
+- **In-browser highlighter & annotations**: select-highlight, recolor/delete, sticky note editor, sliding notes panel
 
 > The file is fully self-contained — no network required (KaTeX loads on first visit, works offline after that).
 
