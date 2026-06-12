@@ -421,6 +421,17 @@ mark.hl-flash{animation:hl-flash-pulse .8s ease-out}
 }
 </style>
 
+<!-- Paper metadata — agent MUST fill these in Phase A4 -->
+<meta name="paper-title" content="">
+<meta name="paper-type" content="">
+<meta name="paper-authors" content="">
+<meta name="paper-venue" content="">
+<meta name="paper-date" content="">
+<meta name="paper-institution" content="">
+<meta name="paper-method" content="">
+<meta name="paper-key-finding" content="">
+<meta name="paper-subtitle" content="">
+
 <!-- KaTeX for formula rendering (optional: remove if paper has no math) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -1089,6 +1100,26 @@ let annotations = [];
 let pendingSelection = null;
 let activeAnnotationId = null;
 
+/* --- Init from meta tags --- */
+(function initMeta(){
+  try{
+    const get=name=>{const m=document.querySelector('meta[name="'+name+'"]');return m?m.getAttribute('content').trim():''};
+    const typeLabels={system:'System',algorithm:'Algorithm',survey:'Survey',empirical:'Empirical',position:'Position'};
+    const t=get('paper-title'),ty=get('paper-type'),a=get('paper-authors'),v=get('paper-venue'),d=get('paper-date'),inst=get('paper-institution'),mt=get('paper-method'),kf=get('paper-key-finding'),st=get('paper-subtitle');
+    if(t){
+      document.title='Paper Reading: '+t;
+      const topM=document.querySelector('.top-meta');if(topM)topM.innerHTML='<strong>'+escHtml(t)+'</strong>'+(v?' &middot; '+escHtml(v):'')+(d?' &middot; '+escHtml(d):'');
+      const h1=document.querySelector('.section h1');if(h1){const n=h1.childNodes[0];if(n&&n.nodeType===3)n.textContent=t}
+    }
+    if(st){const sub=document.querySelector('h1 .sub');if(sub)sub.textContent=st}
+    if(ty){const badge=document.querySelector('.top-badge');if(badge)badge.textContent=typeLabels[ty]||ty}
+    const labels=[['paper-authors','📄 Authors',a],['paper-institution','🏫 Institution',inst],['paper-method','🔬 Method',mt],['paper-key-finding','🎯 Key Finding',kf]];
+    const row=document.querySelector('.meta-row');if(row&&labels.some(l=>l[2])){
+      row.innerHTML=labels.filter(l=>l[2]).map(l=>'<span>'+escHtml(l[1])+': '+escHtml(l[2])+'</span>').join('');
+    }
+  }catch(e){}
+})();
+
 function annotationId(){return 'hl_'+Date.now()+'_'+Math.random().toString(36).slice(2,6)}
 
 /* --- Text offset helpers --- */
@@ -1169,8 +1200,9 @@ function restoreHighlights(){
 }
 
 /* --- Persistence --- */
-function saveAnnotations(){try{localStorage.setItem('ppr-note-annotations',JSON.stringify(annotations))}catch(e){}}
-function loadAnnotations(){try{const d=localStorage.getItem('ppr-note-annotations');if(d){annotations=JSON.parse(d);restoreHighlights()}}catch(e){}}
+function saveAnnotations(){try{localStorage.setItem('ppr-note-annotations',JSON.stringify(annotations))}catch(e){}syncAnnotationData()}
+function loadAnnotations(){try{const d=localStorage.getItem('ppr-note-annotations');if(d){annotations=JSON.parse(d);restoreHighlights()}}catch(e){}syncAnnotationData()}
+function syncAnnotationData(){const tag=document.getElementById('ppr-annotation-data');if(tag)tag.textContent=JSON.stringify(annotations)}
 
 /* --- Popup --- */
 function showPopup(x,y,forHighlight){
@@ -1342,5 +1374,7 @@ function clearAllAnnotationsPrompt(){
 })();
 </script>
 
+
+<script id="ppr-annotation-data" type="application/json">[]</script>
 </body>
 </html>

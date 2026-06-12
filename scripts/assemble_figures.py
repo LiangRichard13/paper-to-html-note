@@ -50,8 +50,8 @@ def validate_div_balance(body, sections_meta):
         sec_id = sec.get('id', '')
         sec_num = sec.get('num', '')
 
-        # Find this section's opening tag
-        pattern = f'<div class="section" id="{re.escape(sec_id)}">'
+        # Find this section's opening tag (raw string — .find() doesn't use regex)
+        pattern = f'<div class="section" id="{sec_id}">'
         start = body.find(pattern)
         if start < 0:
             # Try without id (some auto-wrap produced id="")

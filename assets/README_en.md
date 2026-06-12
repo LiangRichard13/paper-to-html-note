@@ -27,6 +27,7 @@ Convert academic CS/SE PDF papers into a single self-contained HTML reading note
 - 🔍 Lightbox zoom (← → Esc keyboard navigation)
 - 📱 Mobile responsive (sidebar collapses to overlay below 960px)
 - 📊 Reading progress bar + scroll-triggered entrance animation
+- 📚 Index page generator — recursively scans a folder, builds a searchable/filterable catalog with file tree
 
 ---
 
@@ -152,14 +153,18 @@ paper-to-html-note/
     README_en.md
     template.html              # Chinese template
     template_en.html           # English template (structurally identical)
+    index-template.html        # Note index page template
     examples/
+      screenshot.png
       toward_personalized_llm_powered_agents_reading_notes.html
   references/
     component-catalog.md
     design-system.md
+    index-builder.md
   scripts/
     extract_figures.py
     assemble_figures.py
+    build_manifest.py          # Index generator
 ```
 
 ---

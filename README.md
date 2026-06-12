@@ -27,6 +27,7 @@
 - 🔍 Lightbox 点击放大（← → Esc 键盘导航）
 - 📱 移动端响应式（960px 以下侧边栏折叠为浮层）
 - 📊 阅读进度条 + 滚动触发入场动画
+- 📚 笔记索引页生成器——递归扫描文件夹，生成带搜索/过滤/文件树的目录页
 
 ---
 
@@ -152,14 +153,18 @@ paper-to-html-note/
     README_en.md
     template.html              # 中文模板
     template_en.html           # 英文模板（结构一致）
+    index-template.html        # 笔记索引页模板
     examples/
+      screenshot.png
       toward_personalized_llm_powered_agents_reading_notes.html
   references/
     component-catalog.md
     design-system.md
+    index-builder.md
   scripts/
     extract_figures.py
     assemble_figures.py
+    build_manifest.py          # 索引生成器
 ```
 
 ---
