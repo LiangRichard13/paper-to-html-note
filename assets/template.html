@@ -292,10 +292,10 @@ figure.paper-fig figcaption{font-size:12.5px;color:var(--text2);margin-top:8px;
 
 /* --- Sticky note base variables --- */
 :root{
-  --sticky-bg: #fffbe6; --sticky-bg-dark: #2d2a1a;
+  --sticky-bg: #fffbe6;
   --sticky-shadow: 0 3px 10px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.06);
 }
-[data-theme="dark"]{--sticky-bg: #2d2a1a;}
+[data-theme="dark"]{--sticky-bg: #4e4126;}
 
 /* --- Highlighter marks --- */
 mark[class^="hl-"]{border-radius:2px;padding:0 2px;cursor:pointer;transition:all .2s;position:relative}
@@ -305,7 +305,8 @@ mark.hl-blue{background:rgba(41,121,255,.35);border-bottom:2px solid rgba(41,121
 mark.hl-pink{background:rgba(255,64,129,.35);border-bottom:2px solid rgba(255,64,129,.55)}
 mark.hl-orange{background:rgba(255,152,0,.40);border-bottom:2px solid rgba(255,152,0,.55)}
 mark.hl-purple{background:rgba(156,39,176,.35);border-bottom:2px solid rgba(156,39,176,.55)}
-mark[class^="hl-"]:hover{filter:brightness(.9);box-shadow:0 0 0 2px currentColor}
+mark[class^="hl-"]:hover{filter:brightness(.92)}
+mark.hl-sibling-active{filter:brightness(.92)}
 mark[data-has-note="true"]::after{content:'📎';font-size:8px;position:absolute;top:-6px;right:-2px;pointer-events:none;line-height:1}
 mark[data-has-note="true"]{position:relative}
 mark[data-has-note="true"]:hover::before{
@@ -1115,7 +1116,10 @@ function serializeSelection(){
   // KaTeX check
   let n=range.startContainer;while(n&&n!==contentEl){if(n.classList&&n.classList.contains('katex'))return'KATEX';n=n.parentNode}
   n=range.endContainer;while(n&&n!==contentEl){if(n.classList&&n.classList.contains('katex'))return'KATEX';n=n.parentNode}
-  return{startOffset:s,endOffset:e,text:range.toString().trim()};
+  // Use textContent.slice for consistent whitespace across paragraphs (browsers
+  // normalize range.toString() whitespace differently for cross-paragraph selections)
+  const rawText=contentEl.textContent.slice(s,e).replace(/\s+/g,' ').trim();
+  return{startOffset:s,endOffset:e,text:rawText||range.toString().trim()};
 }
 function getTextNodesInRange(range){
   const nodes=[],iter=document.createNodeIterator(range.commonAncestorContainer,NodeFilter.SHOW_TEXT,{acceptNode:n=>range.intersectsNode(n)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT});
@@ -1124,12 +1128,15 @@ function getTextNodesInRange(range){
 }
 function applyMarkWrapper(range,color,id,hasNote){
   const segs=getTextNodesInRange(range);
+  const mkList=[];
   for(const seg of segs){
     const sr=document.createRange();sr.setStart(seg.node,seg.start);sr.setEnd(seg.node,seg.end);
     const mk=document.createElement('mark');mk.className='hl-'+color;mk.dataset.annotationId=id;
-    if(hasNote){mk.dataset.hasNote='true';mk.dataset.note=annotations.find(a=>a.id===id)?.note||''}
+    if(hasNote)mk.dataset.note=annotations.find(a=>a.id===id)?.note||'';
     try{sr.surroundContents(mk)}catch(e){const ext=sr.extractContents();mk.appendChild(ext);sr.insertNode(mk)}
+    mkList.push(mk);
   }
+  if(hasNote&&mkList.length>0)mkList[mkList.length-1].dataset.hasNote='true';
 }
 function textOffsetToRange(ancestor,so,eo){
   const s=textNodeAtOffset(ancestor,so),e=textNodeAtOffset(ancestor,eo);
@@ -1143,6 +1150,14 @@ function stripExistingHighlights(container){
 function bindMarkClicks(){
   document.querySelectorAll('mark[class^="hl-"]').forEach(mk=>{
     mk.onclick=function(e){e.stopPropagation();showHighlightPopup(e,this.dataset.annotationId)}
+    mk.onmouseenter=function(){
+      const id=this.dataset.annotationId;
+      document.querySelectorAll('mark[data-annotation-id="'+id+'"]').forEach(m=>m.classList.add('hl-sibling-active'))
+    }
+    mk.onmouseleave=function(){
+      const id=this.dataset.annotationId;
+      document.querySelectorAll('mark[data-annotation-id="'+id+'"]').forEach(m=>m.classList.remove('hl-sibling-active'))
+    }
   });
 }
 function restoreHighlights(){
@@ -1260,10 +1275,13 @@ function closeStickyEditor(save){
   if(save){
     const ann=annotations.find(a=>a.id===stickyEditId),ta=document.getElementById('stickyTextarea');
     if(ann&&ta){ann.note=ta.value.trim();ann.updatedAt=Date.now();saveAnnotations();
-      // Update DOM marks
-      document.querySelectorAll('mark[data-annotation-id="'+stickyEditId+'"]').forEach(mk=>{
-        if(ann.note){mk.dataset.hasNote='true';mk.dataset.note=ann.note}else{mk.removeAttribute('data-has-note');mk.removeAttribute('data-note')}
+      // Update DOM marks — only last segment gets the pin
+      const marks=document.querySelectorAll('mark[data-annotation-id="'+stickyEditId+'"]');
+      marks.forEach(mk=>{
+        if(ann.note)mk.dataset.note=ann.note;else mk.removeAttribute('data-note');
+        mk.removeAttribute('data-has-note');
       });
+      if(ann.note&&marks.length>0)marks[marks.length-1].dataset.hasNote='true';
     }
   }
   document.getElementById('stickyEditor').classList.remove('active');stickyEditId=null;renderNotesList();
@@ -1296,7 +1314,7 @@ function renderNotesList(){
     if(count)count.textContent='0';if(toggle)toggle.classList.remove('has-notes');return;
   }
   if(count)count.textContent=annotations.length;if(toggle)toggle.classList.add('has-notes');
-  const sorted=[...annotations].sort((a,b)=>b.createdAt-a.createdAt);
+  const sorted=[...annotations].sort((a,b)=>a.startOffset-b.startOffset);
   list.innerHTML=sorted.map(a=>'<div class="note-item" data-id="'+a.id+'" onclick="scrollToAnnotation(\''+a.id+'\')">'+
     '<div class="note-item-color" style="--hl-color:var(--hl-'+a.color+')"></div>'+
     '<div class="note-item-text" title="'+escHtml(a.text)+'">'+escHtml(a.text)+'</div>'+
@@ -1310,7 +1328,7 @@ function renderNotesList(){
 function escHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
 function scrollToAnnotation(id){
-  const mk=document.querySelector('mark[data-annotation-id="'+id+'"]');if(mk){mk.scrollIntoView({behavior:'smooth',block:'center'});mk.classList.add('hl-flash');setTimeout(()=>mk.classList.remove('hl-flash'),800)}
+  const marks=document.querySelectorAll('mark[data-annotation-id="'+id+'"]');if(marks.length>0){marks[0].scrollIntoView({behavior:'smooth',block:'center'});marks.forEach(mk=>{mk.classList.add('hl-flash');setTimeout(()=>mk.classList.remove('hl-flash'),800)})}
   const item=document.querySelector('.note-item[data-id="'+id+'"]');if(item)item.classList.toggle('expanded');
 }
 

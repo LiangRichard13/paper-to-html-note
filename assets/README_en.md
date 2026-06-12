@@ -1,10 +1,10 @@
 # Paper to HTML Reading Note
 
-> [**中文 README** →](../README.md)
+> [中文 README →](../README.md)
 
-> **⚠️ Token cost**: Generating a full reading note consumes approximately **60k–120k tokens** (varies by paper length, pipeline mode, and organization strategy). Use judiciously and plan your budget accordingly.
+> **Token cost**: Generating a reading note consumes roughly **60k–120k tokens**, depending on paper length, pipeline mode, and organization strategy.
 
-Convert academic CS/SE PDF papers into **self-contained, interactive HTML reading notes** — dark mode, sidebar navigation, rich component library, with **4 organization strategies** matched to your reading intent. Annotation language is chosen by the user (Simplified Chinese or English).
+Convert academic CS/SE PDF papers into a single self-contained HTML reading note. Dark mode, sidebar navigation, built-in annotation system, and 4 organization strategies.
 
 **One HTML file, zero external dependencies.** KaTeX loads from CDN on first visit, falls back to monospace when offline.
 
@@ -16,23 +16,17 @@ Convert academic CS/SE PDF papers into **self-contained, interactive HTML readin
 
 ## Features
 
-- 🌓 **Dark/Light mode** — persisted to `localStorage` across sessions
-- 📑 **Sticky sidebar** — IntersectionObserver highlights active section, collapsible groups
-- 🔗 **h2 anchor links** — hover reveals `#` link, click triggers section-flash animation
-- 📊 **Reading progress bar** — accent→cyan gradient
-- 🖼 **Smart figure cropping** — extracts individual diagram regions from PDFs (not full pages), with text-block cluster fallback for text-only figures
-- 📐 **KaTeX math rendering** — inline `$...$` and display `$$...$$`, monospace fallback offline
-- 🔍 **Lightbox click-to-zoom** — keyboard navigation (← → Esc), prev/next buttons
-- 🎬 **Scroll-triggered entrance animation** — first 2–3 sections fade in
-- 📱 **Mobile responsive** — sidebar collapses to ☰ overlay below 960px; table swipe with scroll indicator
-- 📋 **Code copy button** — hover on `<pre>` blocks reveals clipboard copy
-- 🖨 **Print-optimized** — hides chrome, expands all sections, constrains images
-- 📋 **6 callout types** + 3 grid layouts + 6 tag colors + syntax-highlighted code blocks
-- 🌐 **User-chosen annotation language** — Chinese (default) or English
-- 🎯 **4 organization strategies** — choose how content is ordered based on your reading intent
-- 🔎 **Paper type detection** — automatic classification (system/algorithm/survey/empirical/position) to recommend optimal strategy
-- 📝 **Formula pre-extraction** — formulas transcribed to LaTeX before section reorganization, preserving PDF page context
-- 🖍 **In-browser highlighter & annotations** — highlight text with 6 fluorescent colors; click highlights to recolor, delete, or open a sticky note editor; sliding right panel manages all annotations with localStorage persistence
+- 🌓 Dark/light mode (persisted to `localStorage`)
+- 📑 Sidebar navigation (IntersectionObserver, collapsible groups)
+- 🖍 In-browser highlighter: select→highlight (6 colors), sticky note editor, sliding panel, cross-session persistence
+- 📐 KaTeX math rendering (inline + display), monospace fallback when offline
+- 🎯 4 organization strategies: paper-structure-aligned / cognition-first / question-driven / persona-driven, with auto-recommendation based on paper type
+- 🔎 Paper type detection (system/algorithm/survey/empirical/position) for strategy recommendation
+- 🖼 Caption-driven figure extraction (vector graphics + text-block cluster fallback)
+- 📝 Formula pre-extraction — formulas transcribed to LaTeX before section reorganization
+- 🔍 Lightbox zoom (← → Esc keyboard navigation)
+- 📱 Mobile responsive (sidebar collapses to overlay below 960px)
+- 📊 Reading progress bar + scroll-triggered entrance animation
 
 ---
 
@@ -44,133 +38,107 @@ Convert academic CS/SE PDF papers into **self-contained, interactive HTML readin
 pip install PyMuPDF
 ```
 
-`pdftotext` is recommended for text extraction (included in `poppler-utils` on most systems).
+`pdftotext` is recommended (included in `poppler-utils` on most systems).
 
-### Usage (as a Claude Code skill)
+### Usage (Claude Code skill)
 
 ```
 /paper-to-html-note @paper.pdf
 ```
 
-The skill first gathers paper metadata (page count, figure count), detects paper type from the abstract and headings, asks you to choose a pipeline, annotation language, and **reading intent** (which maps to an organization strategy):
+The skill gathers paper metadata, then asks you to choose pipeline, annotation language, and organization strategy:
 
 | | Pipeline A (Sequential) | Pipeline B (Parallel) |
 |---|:---:|:---:|
 | **Agents** | 1 | 5–12 (requires Ultracode) |
-| **Best for** | Short papers (<12pp), formula-heavy, quick previews, persona-driven narrative | Long papers (≥12pp), figure-rich (>6), surveys, cognition-first |
-| **Token cost** | ~60k–120k | ~70k–100k (overhead offset by architecture savings) |
-| **Output style** | Single-agent coherence | Dedicated agent per section, deeper analysis |
-| **Figures** | Direct base64 inline embedding | `<!-- FIG:N -->` placeholders + Python post-processing |
-| **Quality** | Writer self-checks + 29-point checklist | B3.5 review agent + B3.5b coherence agent + B4c structural validation |
+| **Best for** | Short papers (<12pp), formula-heavy, quick previews | Long papers (≥12pp), figure-rich (>6), surveys |
+| **Token cost** | ~60k–120k | ~70k–100k |
+| **Figures** | Direct base64 inline | `<!-- FIG:N -->` placeholders + Python post-processing |
 
 ---
 
 ## Organization Strategies
 
-The reading note can be organized in one of four ways, chosen automatically based on **reading intent** × **paper type**:
+Four strategies, chosen directly by the user in Phase 0b (Agent recommends based on paper type):
 
 | Strategy | Best For | How It Works |
 |----------|----------|-------------|
-| **paper-structure-aligned** | Reviewing familiar material | Sections follow the paper's own structure — easy cross-reference |
-| **cognition-first** | First-time reading (system/survey/position papers) | Builds understanding from problem → core idea → design → results → implications |
-| **question-driven** | First-time reading (algorithm/empirical papers) or quick evaluation | Each section IS a question the paper answers — FAQ-style |
-| **persona-driven** | Practitioner evaluation | Conversational narrative from a practitioner's perspective |
-
-### Strategy Selection Logic
-
-| Intent | system | algorithm | survey | empirical | position |
-|--------|--------|-----------|--------|-----------|----------|
-| review (复习) | paper-structure | paper-structure | paper-structure | paper-structure | paper-structure |
-| learn (初学) | cognition-first | question-driven | cognition-first | question-driven | cognition-first |
-| locate (查找) | paper-structure | paper-structure | question-driven | paper-structure | question-driven |
-| evaluate (评估) | question-driven | question-driven | cognition-first | question-driven | cognition-first |
+| paper-structure-aligned | Reviewing/locating | Follows the paper's own section order |
+| cognition-first | First-time reading system/survey/position | Problem → Core idea → Design → Results |
+| question-driven | First-time reading algorithm/empirical | Each section is a question + answer, FAQ style |
+| persona-driven | Practitioner evaluation | First-person narrative: "Why I read this", "Where I'd be cautious" |
 
 ---
 
-## Figure Extraction: Caption-Driven Smart Cropping
+## Figure Extraction
 
-Academic PDF figures are **vector graphics** (drawings), not embedded raster images. The built-in extractor combines four signals — **no external models or APIs required**, pure geometric analysis with zero dependencies beyond PyMuPDF:
+Academic PDF figures are vector graphics, not embedded raster images. The extractor uses four geometric signals — no external models or APIs:
 
 ```
                 Body paragraph (full-width, >150 chars)
                   ↓ constrains top edge
   ┌──────────────────────────────────┐  ← fig_top
   │    Vector drawings ██████████    │  ← drawing density tightens bounds
-  │    (or text-block cluster)       │  ← v4.1 fallback
+  │    (or text-block cluster)       │  ← fallback
   │    Figure content                │
   ├──────────────────────────────────┤  ← fig_bottom = caption_top − 2pt
   │  Fig. 1. Overview of ...         │  ← caption anchor
   └──────────────────────────────────┘
 ```
 
-Covers ~95% of CS papers; text-only figures (trees, tables, flowcharts) use a v4.1 text-block cluster fallback.
+Covers ~95% of CS papers. Text-only figures use a text-block cluster fallback. A quick pre-check scans for "Fig."/"Figure" captions before extraction.
 
-A **quick pre-check** runs before the full extractor — scans for "Fig."/"Figure" captions across all pages to decide whether extraction is needed at all.
-
-### Standalone figure extraction
+### Standalone use
 
 ```bash
-python ../scripts/extract_figures.py paper.pdf --dpi 200 -o figures.json
-
-# Also save individual PNGs
-python ../scripts/extract_figures.py paper.pdf --dpi 200 --save-images
+python scripts/extract_figures.py paper.pdf --dpi 200 -o figures.json
+python scripts/extract_figures.py paper.pdf --dpi 200 --save-images
 ```
 
 ---
 
-## HTML Component Library
+## HTML Components
 
-| Component | Use for |
-|-----------|---------|
-| `.callout` (6 variants: info/warn/success/danger/purple/cyan) | Insights, warnings, takeaways, design motivation |
-| `.grid-2 > .mini-card` | Parallel concepts, values, future directions |
-| `.pbox` numbered list | Design principles, rules, guidelines |
-| `table` inside `.table-wrap` | Architectures, comparisons, taxonomies, benchmarks |
-| `figure.paper-fig` | Embedded figures with lightbox zoom + lazy loading |
-| `.summary-grid` | Key metrics dashboard (6–16 items) |
-| `.formula-display` / `.formula-inline` | KaTeX formulas with offline fallback |
-| `pre` + syntax highlighting | Pseudocode and code snippets (hover to copy) |
+| Component | Use |
+|-----------|-----|
+| `.callout` (6 variants) | Insights, warnings, design motivation |
+| `.grid-2 > .mini-card` | Parallel concepts, comparisons |
+| `.pbox` numbered list | Design principles, rules |
+| `table` inside `.table-wrap` | Architecture, taxonomy, benchmarks |
+| `figure.paper-fig` | Embedded figures with lightbox + lazy loading |
+| `.summary-grid` | Key metrics dashboard |
+| `.formula-display` / `.formula-inline` | KaTeX formulas |
+| `pre` + syntax highlighting | Pseudocode and code |
+| `.mindmap` | Concept visualization |
 | `.trace` ordered list | Numbered process flow |
-| `.mindmap` | Concept visualization with center node + children |
-| `.tag` (6 colors) | Inline labels |
 
 ---
 
-## Context Safety Design
+## Context Safety (Pipeline B)
 
-Pipeline B avoids context explosion through file I/O isolation — base64 image data **never enters LLM context**:
+Pipeline B isolates base64 image data from LLM context through file I/O:
 
-| Stage | Sub-agent returns | Context footprint |
-|-------|-------------------|:---:|
-| B1 (parallel extraction) | JSON metadata (figure IDs, formula LaTeX) | <2KB |
-| B2 (section assignment) | N section assignments with `strategy` field, `position_context`, `previously_defined_concepts` | <5KB |
-| B3 (parallel writing) | `{section_id, num, title, file_path}` via structured schema | ~50B × N |
-| B3.5 (quality review) | Structured review JSON + coherence gate check | <1KB |
-| B3.5b (coherence validation) | Lightweight pairwise edits with div safety validation | 0 (shell validation) |
-| B4 (shell assembly) | `assemble_figures.py` + ordered concatenation | **0 LLM tokens** |
-| B4c (final agent) | Reads `sections_meta.json` only — never reads `assembled_body.html` | <2KB |
+| Stage | Returns | Context |
+|-------|---------|:------:|
+| B1 Parallel extraction | JSON metadata (figure IDs, formula LaTeX) | <2KB |
+| B2 Section assignment | Section assignments + context | <5KB |
+| B3 Parallel writing | `{section_id, num, title, file_path}` | ~50B × N |
+| B3.5a Quality review | Structured review JSON | <1KB |
+| B3.5b Coherence validation | Pairwise edits + div safety | 0 (shell) |
+| B4 Assembly | `assemble_figures.py` + concatenation | **0 tokens** |
+| B4c Final check | Reads `sections_meta.json` only | <2KB |
 
 ---
 
-## Example Output
+## Example
 
-A real-world reading note generated from **"Towards Personalized LLM-Powered Agents"** — a survey paper on personalized agents:
+Reading note from "Towards Personalized LLM-Powered Agents" (29-page survey, 8 figures, Chinese annotations):
 
-> **[📄 Open the live reading note →](https://htmlpreview.github.io/?https://github.com/LiangRichard13/paper-to-html-note/blob/master/assets/examples/toward_personalized_llm_powered_agents_reading_notes.html)**
-> *(Powered by [htmlpreview.github.io](https://htmlpreview.github.io/) — renders the HTML directly in your browser)*
+> [📄 View live →](https://htmlpreview.github.io/?https://github.com/LiangRichard13/paper-to-html-note/blob/master/assets/examples/toward_personalized_llm_powered_agents_reading_notes.html)
 
-<img src="examples/screenshot.png" alt="Reading note screenshot — dark mode with sidebar navigation, callout cards, and inline figures" width="720">
+<img src="examples/screenshot.png" alt="Reading note screenshot" width="720">
 
-**What this example shows**:
-- 29-page survey paper, 8 figures, Chinese annotation language
-- 6 content sections: Foundations → Memory → Profile → Retrieval → Evolution → Evaluation
-- Inline architecture diagrams and comparison charts with lightbox zoom
-- Insight callouts (design motivation, cross-section links, practical takeaways, critical observations)
-- Executive summary dashboard with key metrics
-- Taxonomy table, comparison table, and future directions cards
-- **In-browser highlighter & annotations**: select-highlight, recolor/delete, sticky note editor, sliding notes panel
-
-> The file is fully self-contained — no network required (KaTeX loads on first visit, works offline after that).
+6 content sections (Foundations → Memory → Profile → Retrieval → Evolution → Evaluation), inline architecture diagrams, insight callouts, comparison tables, executive summary dashboard, and the full in-browser annotation system.
 
 ---
 
@@ -178,67 +146,45 @@ A real-world reading note generated from **"Towards Personalized LLM-Powered Age
 
 ```
 paper-to-html-note/
-  SKILL.md                   # Skill definition — complete workflow spec with 4 organization strategies
-  README.md                  # Chinese README
+  SKILL.md
+  README.md
   assets/
-    README_en.md             # This file (English)
-    template.html            # Chinese template — all UI labels in Simplified Chinese
-    template_en.html         # English template — all UI labels in English (structurally identical)
+    README_en.md
+    template.html              # Chinese template
+    template_en.html           # English template (structurally identical)
     examples/
       toward_personalized_llm_powered_agents_reading_notes.html
-                             # Real-world example: 29-page survey paper reading note
   references/
-    component-catalog.md     # All HTML components with usage guide
-    design-system.md         # CSS variables, themes, JS modules, enhancements
+    component-catalog.md
+    design-system.md
   scripts/
-    extract_figures.py       # Caption-driven figure extraction (v4.1)
-    assemble_figures.py      # Figure placeholder → base64 assembly + structural validation
+    extract_figures.py
+    assemble_figures.py
 ```
 
 ---
 
-## Supported Paper Types
+## Supported Papers
 
-Optimized for **CS/SE academic papers** (arXiv, ACM, IEEE, NeurIPS, ICML, etc.).
+Optimized for CS/SE academic papers (arXiv, ACM, IEEE, NeurIPS, ICML, etc.): two-column/single-column, vector graphics, math formulas, text-only figures.
 
-- Two-column and single-column layouts
-- Full-width and column-spanning figures
-- Vector graphics (drawings) and raster images
-- Text-only figures (taxonomy trees, tables, code listings) — v4.1 text-block cluster
-- Papers with mathematical formulas (KaTeX via CDN)
-- Multi-figure pages
-- Papers without figures (quick pre-check skips extraction gracefully)
-
----
-
-## Limitations & Edge Cases
+## Limitations
 
 | Scenario | Behavior |
 |----------|----------|
-| Raster-only figures (scanned PDFs) | Falls back to caption-based estimation |
-| Non-English captions (e.g., "図 1") | Not detected; needs regex extension |
+| Scanned PDFs (raster-only) | Falls back to caption-based estimation |
+| Non-English captions ("図 1") | Not detected; regex extension needed |
 | Three-column layouts | Body paragraph detection may be inaccurate |
-| Sub-figure captions (Fig. 1a) | Supported via regex |
 | Caption above figure (old-style) | Will crop incorrectly |
-| Figure spanning page break | May cut at page bottom |
-| Text-only figures (no drawings) | v4.1 text-block cluster fallback; may need manual cropping if boundaries are ambiguous |
-
----
+| Figure spanning page break | May be cut at page boundary |
 
 ## Dependencies
 
-- **Python 3.9+**
-- **PyMuPDF** (`fitz`) — PDF parsing, text extraction, figure rendering
-- **KaTeX** — CDN-loaded (monospace fallback when offline)
-- **pdftotext** (optional) — faster text extraction
-
----
+- Python 3.9+
+- PyMuPDF (`fitz`)
+- KaTeX (CDN-loaded, monospace fallback offline)
+- pdftotext (optional)
 
 ## License
 
-MIT License.
-
-## Acknowledgments
-
-- [KaTeX](https://katex.org/) — Fast math rendering for the web
-- [PyMuPDF](https://pymupdf.readthedocs.io/) — PDF parsing and rendering
+MIT

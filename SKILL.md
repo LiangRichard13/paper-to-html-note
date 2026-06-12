@@ -31,9 +31,9 @@ Before presenting the choice, gather the data needed for a good recommendation:
    ```
    If missing: `pip install PyMuPDF`. Also check `pdftotext --help` is available.
 
-2. Read `assets/template.html` — the complete CSS/JS shell (~40KB). Read this LAST since it's the largest reference file.
+2. Read `references/component-catalog.md` — all 24 components. Read this FIRST (smaller, needed to understand component patterns before seeing the template).
 
-3. Read `references/component-catalog.md` — all 22 components. Read FIRST (smaller, needed to understand component patterns before seeing the template).
+3. Read `assets/template.html` — the complete CSS/JS shell (~40KB). Read this LAST since it's the largest reference file.
 
 4. Extract PDF text with `pdftotext -layout` (or PyMuPDF fallback). After extraction, verify: if `wc -l` shows <50 lines AND `python -c "import fitz; print(fitz.open('<pdf-path>').page_count)"` also shows <2 pages, the PDF is likely unreadable (scanned, encrypted, or corrupted). Warn the user and ask whether to proceed.
 
@@ -109,7 +109,8 @@ Here's the decision framework for your recommendation:
 
 ```text
 If Ultracode is NOT available:
-  → Pipeline A is the only option. Inform the user and proceed.
+  → Pipeline A is the only option. Skip Q1 (no choice to make),
+    inform the user:"仅 Pipeline A（串行）可用", and proceed to Q2.
 
 If Ultracode IS available:
   Any of: pages ≥ 12, figures > 6, or the paper is a
@@ -161,43 +162,24 @@ The user picks, and you proceed with the chosen pipeline. If the user does not r
 - The Content Depth Rules and Sub-Agent Prompt (sub-agents are told which language to write in)
 - Technical terms, code identifiers, author names, and numerical values are always preserved in original form regardless of language choice
 
-**Question 3 — Use scenario.** Automatically maps to an organization strategy based on user intent and detected paper type. This merges what would otherwise be two separate questions (intent + strategy) into one, minimizing decision fatigue. Present these options:
+**Question 3 — Organization strategy.** Present all 4 strategies directly. For each, explain the organizational logic and best-use scenario. The Agent MUST recommend a strategy based on the detected paper type and content characteristics from Phase 0a.
 
-| Option (Chinese) | Option (English) | → Auto Strategy | Best For |
-|---|---|---|---|
-| 我想复习之前读过的内容 | I've read it, need reference notes | paper-structure-aligned | Quick section-by-section lookup |
-| 这是我第一次接触这篇论文 | I haven't read this paper yet | cognition-first or question-driven (auto-selected based on paper type) | Building understanding from scratch |
-| 我想快速判断值不值得读 | I'm deciding whether to read this | question-driven | 5-minute overview of core contributions |
-| 自定义组织方式... | Custom... | Expands to Q4 for manual strategy selection | Advanced users |
+| Strategy | Label | Best For | How It Works |
+|----------|-------|----------|--------------|
+| paper-structure-aligned | 论文结构对齐 | Reviewing or locating content | Follows the paper's own section order for easy cross-reference |
+| cognition-first | 认知先行 | First-time reading system/survey/position papers | Problem → Core idea → Design → Results, building a cognitive framework from scratch |
+| question-driven | 问题驱动 | First-time reading algorithm/empirical papers | Each section IS a question the paper answers — FAQ style, great for quick evaluation |
+| persona-driven | 实践者视角 | Practitioner evaluation | First-person conversational narrative: "Why I read this", "Where I'd be cautious", "When I'd use this" |
 
-**Auto-selection logic for "第一次接触"**: Use the detected paper type from Phase 0a step 6.5 with the complete recommendation matrix below.
+**Agent recommendation**: Reference the detected paper type (Phase 0a step 6.5) and specific content features (e.g., system architecture diagrams, taxonomy/classification structure, experiment design, formal proofs) to explain the recommendation.
 
-**Complete recommendation matrix (intent × paper_type → primary strategy)**:
-
-| Intent | system | algorithm | survey | empirical | position |
-|--------|--------|-----------|--------|-----------|----------|
-| review (复习) | paper-structure | paper-structure | paper-structure | paper-structure | paper-structure |
-| learn (初学) | cognition-first | question-driven | cognition-first | question-driven | cognition-first |
-| locate (查找) | paper-structure | paper-structure | question-driven | paper-structure | question-driven |
-| evaluate (评估) | question-driven | question-driven | cognition-first | question-driven | cognition-first |
-
-**If paper type was ambiguous in Phase 0a step 6.5** (two types within 0.2 confidence), include a note in the Q3 prompt:
 ```
-📋 注意：论文类型检测不确定（可能是 {type_a} 或 {type_b}）。
-如果选择「第一次接触」，将默认按 {type_a} 组织（{type_a_strategy}）。
-如需要 {type_b_strategy} 组织，请选择「自定义」手动切换。
+根据这篇论文的类型（{paper_type}）和内容特点（{content_notes}），我的建议：
+- 如果你还没读过 → 推荐 **{strategy_a}**（{reason}）
+- 如果你已经读过、需要复习/查找 → 推荐 **paper-structure-aligned**
 ```
 
-**Q4 — Manual strategy selection** (only shown when Q3 = "自定义"):
-
-| Option | Label (Chinese) | Best For |
-|--------|-----------------|----------|
-| paper-structure-aligned | 论文结构对齐 | You've read the paper; section-by-section reference |
-| cognition-first | 认知先行 | You haven't read it; mental framework before details |
-| question-driven | 问题驱动 | You want answers to core design questions |
-| persona-driven | 实践者视角 | You're a practitioner evaluating whether/how to apply |
-
-**Default**: paper-structure-aligned. If the user does not respond to Q3, this is the fallback — behavior identical to current.
+**Default**: paper-structure-aligned. If the user does not respond to Q3, this is the fallback.
 
 **Pipeline B warning for persona-driven**: If the user selects persona-driven AND Pipeline B, issue this warning:
 
@@ -231,10 +213,18 @@ Both pipelines share the same HTML template, component library, figure extractor
 
 中文（简体） / English
 
-**Q3: 请选择使用场景：**
+**Q3: 请选择组织策略：**
 
-🏷️ "这是我第一次接触这篇论文" → 自动推荐：cognition-first（认知先行）
-    备选：question-driven（问题驱动）
+根据这篇综述论文的内容特点（有清晰的分类体系、8个对比维度），我的建议：
+- 如果你还没读过 → 推荐 **cognition-first**（从分类框架入手逐步构建理解）
+- 如果你需要快速查找 → **paper-structure-aligned**
+
+| 策略 | 适合 | 组织逻辑 |
+|------|------|---------|
+| 论文结构对齐 | 复习/查找 | 按论文原章节顺序 |
+| 认知先行 ⭐ | 初学综述 | 问题→核心思想→设计→结果 |
+| 问题驱动 | 初学算法/实证 | 每节一个问题+答案 |
+| 实践者视角 | 评估 | 第一人称叙事 |
 ```
 
 ---
@@ -305,7 +295,7 @@ The four strategies below control how sections are ordered and grouped. The agen
 
 ### Strategy Selection
 
-Strategy is determined by a combination of **user intent** (from Phase 0b Q3) and **detected paper type** (from Phase 0a step 6.5). See the recommendation matrix in Phase 0b for which strategy to recommend for each (intent × paper_type) combination.
+The user directly chooses from the 4 strategies in Phase 0b Q3. The Agent provides a recommendation based on the **detected paper type** (from Phase 0a step 6.5) and content characteristics, but the user makes the final choice.
 
 ### Strategy 1: paper-structure-aligned (default)
 
@@ -385,7 +375,7 @@ Strategy is determined by a combination of **user intent** (from Phase 0b Q3) an
 **Tone**: Use conversational section titles. Write section intros in first/second-person ("you", "I read this so you don't have to"). Technical claims remain precise — informality is in framing, not in data or claims.
 **Sidebar grouping**: Conversational groups like "Why It Matters" / "How It Works" / "Should You Use It?".
 
-### Strategy Implementation: buildSectionOrder()
+### Strategy Implementation: Section Ordering
 
 For implementation, each strategy is an ordered list of section types with grouping metadata. The agent:
 
@@ -623,7 +613,7 @@ After identifying which sections to include (from the mapping above), order them
 
 **Key rule**: Content mapping determines WHICH sections exist. Strategy determines their ORDER. You never force content into sections the paper doesn't have — you only change the sequence and grouping.
 
-**Strategy parameter**: `{organization_strategy}` from Phase 0b Q3/Q4. Default: `paper-structure-aligned`.
+**Strategy parameter**: `{organization_strategy}` from Phase 0b Q3. Default: `paper-structure-aligned`.
 
 **Section building per strategy**:
 
@@ -970,7 +960,7 @@ Caption reference: {figure_captions}
 {component_hints}
 
 ## Component Reference (inline catalog)
-{Insert the inline component catalog below. For the complete catalog (23 components), sub-agents may read references/component-catalog.md if they need a component not listed here.}
+{Insert the inline component catalog below. For the complete catalog (24 components), sub-agents may read references/component-catalog.md if they need a component not listed here.}
 
 ## Content Rules
 0. **Strategy awareness**: {strategy_specific_rule}
@@ -1001,7 +991,7 @@ Caption reference: {figure_captions}
 
 ### Component Reference for Sub-Agents
 
-Include this condensed reference in every sub-agent prompt. For the full catalog (23 components with HTML snippets), sub-agents may read `references/component-catalog.md` if they need a component not listed here.
+Include this condensed reference in every sub-agent prompt. For the full catalog (24 components with HTML snippets), sub-agents may read `references/component-catalog.md` if they need a component not listed here.
 
 ```
 ## Quick Component Reference
@@ -1128,7 +1118,7 @@ Each agent runs independently. `pipeline()` means all N sections are processed c
 </div>
 ```
 
-### Phase B3.5: Quality Review (optional but recommended)
+### Phase B3.5a: Quality Review (optional but recommended)
 
 Before assembly, run a review pass to catch sub-agent errors before they become expensive to fix. Launch **1 reviewer agent** with this prompt:
 
