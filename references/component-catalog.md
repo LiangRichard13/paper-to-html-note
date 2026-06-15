@@ -12,17 +12,25 @@ The overall page skeleton — always use this exact structure. Two templates are
 
 Pick the one that matches the annotation language chosen in Phase 0b, then copy it as the starting point.
 
+**Template overview** (embedded CSS + JS, zero external dependencies):
 ```html
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>论文精读：[Paper Title]</title>
+<title>[set by initMeta() from paper-title meta]</title>
+<!-- Paper metadata — agent fills these 8 <meta> tags -->
+<meta name="paper-title" content="...">
+<meta name="paper-type" content="...">   <!-- system|algorithm|survey|empirical|position -->
+<meta name="paper-authors" content="...">
+<meta name="paper-venue" content="...">
+<meta name="paper-date" content="...">
+<meta name="paper-institution" content="...">
+<meta name="paper-method" content="...">
+<meta name="paper-key-finding" content="...">
 <style>
-  /* EMBED Part 1: CSS Variables */
-  /* EMBED Part 2: Global Reset + Layout */
-  /* EMBED Part 3: Component Styles */
+  /* EMBED Part 1–3: CSS Variables + Layout + Component Styles */
 </style>
 </head>
 <body>
@@ -30,29 +38,27 @@ Pick the one that matches the annotation language chosen in Phase 0b, then copy 
 <div class="top-bar">
   <div class="top-inner">
     <span class="top-badge">论文精读</span>
-    <span class="top-meta"><strong>[Paper Title]</strong> · [Venue/ID] · [Date]</span>
+    <!-- initMeta() auto-populates top-meta from <meta> tags -->
+    <span class="top-meta"><strong>...</strong> · ... · ...</span>
     <span class="top-spacer"></span>
-    <button class="top-btn" onclick="toggleTheme()" title="切换暗色/亮色模式">🌓 主题</button>
-    <button class="top-btn" onclick="window.print()" title="打印">🖨 打印</button>
-    <button class="top-btn" onclick="document.querySelector('.sidebar').style.display=document.querySelector('.sidebar').style.display==='none'?'block':'none'">☰ 目录</button>
+    <button class="top-btn" onclick="toggleTheme()" title="...">🌓 主题</button>
+    <button class="top-btn" onclick="window.print()" title="...">🖨 打印</button>
   </div>
 </div>
 <div class="container">
-  <aside class="sidebar">
-    <h3>📑 目录导航</h3>
-    <!-- SIDEBAR LINKS generated from section IDs -->
-  </aside>
-  <div class="content">
-    <!-- ALL SECTIONS here -->
-  </div>
+  <aside class="sidebar">...</aside>
+  <div class="content"><!-- ALL SECTIONS here --></div>
 </div>
-<button id="btt" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部">↑</button>
+<button id="btt" ...>↑</button>
+<!-- Annotation system: notes panel, popup, sticky editor -->
 <script>
-  /* EMBED Part 4: JavaScript */
+  /* initMeta() + theme + sidebar + lightbox + annotation engine */
 </script>
 </body>
 </html>
 ```
+
+**Key**: Never hand-write `<title>`, `.top-meta`, `.meta-row`, or `<h1>` content — the `initMeta()` JavaScript function reads the 8 `<meta>` tags and auto-populates all of them. Fill only the meta tags per SKILL.md A4.2.
 
 ---
 
@@ -61,16 +67,25 @@ Pick the one that matches the annotation language chosen in Phase 0b, then copy 
 **When**: Always — first section of the document.  
 **Content**: 3-4 metadata fields about the paper.
 
+> ⚠️ **Auto-generated**: The `.meta-row` HTML is auto-populated by `initMeta()` JavaScript from the 8 `<meta name="paper-*">` tags in `<head>`. Do NOT hand-write this section. Only fill the meta tags, then `initMeta()` renders the DOM.
+
+**Rendered output** (for reference — do not copy):
 ```html
 <div class="meta-row">
 <span>📄 <strong>作者</strong> Author1, Author2, Author3 (Institution)</span>
-<span>📅 <strong>日期</strong> YYYY年MM月</span>
+<span>🏫 <strong>机构</strong> Institution name</span>
 <span>🔬 <strong>方法</strong> Method description</span>
-<span>🎯 <strong>核心发现</strong> Key takeaway</span>
+<span>🎯 <strong>核心</strong> Key takeaway</span>
 </div>
 ```
 
-**Customize**: Change emoji and labels based on paper content. Options: 📄作者 🏫机构 🔬方法 ⚖️对比 📊数据 🎯核心 📐框架
+**Which meta tags map to which labels** (hardcoded in `initMeta()`):
+- `paper-authors` → 📄 作者 (Authors)
+- `paper-institution` → 🏫 机构 (Institution)  
+- `paper-method` → 🔬 方法 (Method)
+- `paper-key-finding` → 🎯 核心 (Key Finding)
+
+Fields with empty `content` are automatically omitted from the rendered row.
 
 ---
 
@@ -352,6 +367,8 @@ The `.num` span creates a small blue rounded square with the section number. Use
 
 **When**: Building the sidebar navigation — one entry per major section.
 
+**Mobile toggle**: The `#sidebar-toggle` button (`☰`) appears below 960px viewport width to show/hide the sidebar as a floating overlay. It is already in the template — no manual HTML needed.
+
 ```html
 <details open>
   <summary>Group Name</summary>
@@ -572,7 +589,7 @@ When a figure is referenced multiple times within the HTML (e.g., the same archi
 
 When generating HTML from a paper:
 
-1. **Always include**: Page shell, meta-row, at least one callout.info (core thesis), sidebar, footer
+1. **Always include**: Page shell (from template), at least one callout.info (core thesis), sidebar, footer. The meta-row is auto-generated by `initMeta()` — just fill the meta tags.
 2. **Include if paper has**: The component that best fits the paper's content pattern (see mapping table in SKILL.md)
 3. **Skip if paper doesn't have**: Don't force-fit content into components. For example, if the paper has no "design principles", don't create a principle box section.
 4. **If the paper has figures**: Always include the FIGURES section — use the `SECTION: FIGURES` block from template.html. Place it after the architecture/taxonomy section (wherever diagrams are contextually relevant). Figures without analytical context are useless.

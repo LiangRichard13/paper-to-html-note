@@ -23,6 +23,12 @@ This file is the canonical design system for the HTML reading notes. It is inten
   --radius: 12px; --radius-sm: 8px;
   --sans: -apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif;
   --mono: 'JetBrains Mono','Fira Code','Cascadia Code',monospace;
+  /* Highlighter colors — light theme */
+  --hl-yellow: rgba(255,213,0,0.40);  --hl-green: rgba(0,200,83,0.30);
+  --hl-blue: rgba(41,121,255,0.30);   --hl-pink: rgba(255,64,129,0.30);
+  --hl-orange: rgba(255,152,0,0.35);  --hl-purple: rgba(156,39,176,0.30);
+  /* Sticky editor */
+  --sticky-bg: #faf5e8; --sticky-shadow: 0 4px 16px rgba(0,0,0,.12), 1px 1px 0 rgba(0,0,0,.04);
 }
 ```
 
@@ -40,6 +46,12 @@ This file is the canonical design system for the HTML reading notes. It is inten
   --cyan: #22d3ee; --cyan-lt: #083344;
   --shadow: 0 1px 3px rgba(0,0,0,.25);
   --shadow-md: 0 4px 16px rgba(0,0,0,.4);
+  /* Highlighter colors — dark theme (more saturated for dark bg) */
+  --hl-yellow: rgba(255,213,0,0.35);  --hl-green: rgba(0,200,83,0.30);
+  --hl-blue: rgba(41,121,255,0.35);   --hl-pink: rgba(255,64,129,0.35);
+  --hl-orange: rgba(255,152,0,0.35);  --hl-purple: rgba(156,39,176,0.35);
+  /* Sticky editor — dark */
+  --sticky-bg: #4e4126; --sticky-shadow: 0 4px 16px rgba(0,0,0,.35), 1px 1px 0 rgba(255,255,255,.03);
 }
 ```
 
@@ -93,7 +105,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 
 ```css
 .section{background:var(--card);border-radius:var(--radius);padding:26px 30px;margin-bottom:20px;border:1px solid var(--border);box-shadow:var(--shadow);transition:background .3s}
-.section:target{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-lt)}
+.section:target{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-lt);animation:section-flash 1.6s ease-out}
+@keyframes section-flash{0%{background:var(--accent-lt)}100%{background:var(--card)}}
 h1{font-size:28px;line-height:1.3;margin-bottom:6px}
 h2{font-size:21px;margin-bottom:14px;padding-bottom:7px;border-bottom:2px solid var(--accent-lt);display:flex;align-items:center;gap:10px}
 h2 .num{background:var(--accent);color:#fff;width:27px;height:27px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
@@ -149,6 +162,9 @@ ul,ol{padding-left:20px}
 ### Tables
 
 ```css
+.table-wrap{position:relative;margin:12px 0}
+.table-wrap::after{content:'';position:absolute;top:0;right:0;width:32px;height:100%;background:linear-gradient(90deg,transparent,var(--card));pointer-events:none;opacity:0;transition:opacity .3s}
+.table-wrap.is-overflow::after{opacity:1}
 table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
 th,td{padding:9px 12px;border:1px solid var(--border);text-align:left;vertical-align:top}
 th{background:var(--code-bg);font-weight:600;font-size:12.5px}
@@ -243,6 +259,14 @@ figure.paper-fig figcaption{font-size:12.5px;color:var(--text2);margin-top:8px;
 
 ## Part 4: JavaScript (embed in `<script>` tag at end of `<body>`)
 
+> ⚠️ **See template.html for the complete JS.** The snippets below document core UI functions for reference. Do NOT copy them individually — use the template's full `<script>` block which includes `initMeta()`, the complete annotation engine (~30 functions: `toggleNotesPanel`, `saveHtml`, `loadAnnotations`, `restoreHighlights`, `confirmHighlight`, `openStickyEditor`, `renderNotesList`, etc.), lightbox, `toggleSidebar`, and all other functions in the correct order.
+
+### initMeta() — Reads meta tags, renders DOM
+
+The `initMeta()` function reads the 8 `<meta name="paper-*">` tags and auto-populates `<title>`, `.top-meta`, `.top-badge`, `<h1>`, and `.meta-row`. Agents fill only meta tags (see SKILL.md A4.2); the JS handles all DOM rendering. This is the single source of truth for paper metadata display.
+
+### Core UI functions (reference)
+
 ```javascript
 // ====== Progress Bar ======
 window.addEventListener('scroll',()=>{
@@ -250,7 +274,6 @@ window.addEventListener('scroll',()=>{
   const st=h.scrollTop||b.scrollTop, sh=h.scrollHeight||b.scrollHeight, ch=h.clientHeight;
   const pct=Math.round(st/(sh-ch)*100);
   document.getElementById('progress-bar').style.width=pct+'%';
-  // Back to top button visibility
   const btt=document.getElementById('btt');
   if(st>600) btt.classList.add('show'); else btt.classList.remove('show');
 });
@@ -275,7 +298,6 @@ function toggleTheme(){
   html.setAttribute('data-theme',next);
   localStorage.setItem('ppr-note-theme',next);
 }
-// Load saved theme on startup
 (function(){
   try{
     const saved=localStorage.getItem('ppr-note-theme');

@@ -1207,6 +1207,7 @@ goals and metric dimensions, including effectiveness, adaptivity, general</figca
 </div>
 </div>
 <div class="notes-panel-footer">
+<button onclick="saveHtml()">💾 保存批注</button>
 <button style="color:var(--danger)" onclick="clearAllAnnotationsPrompt()">✕ 清除全部</button>
 </div>
 </aside>
@@ -1529,8 +1530,14 @@ function restoreHighlights(){
 }
 
 /* --- Persistence --- */
-function saveAnnotations(){try{localStorage.setItem('ppr-note-annotations',JSON.stringify(annotations))}catch(e){}}
-function loadAnnotations(){try{const d=localStorage.getItem('ppr-note-annotations');if(d){annotations=JSON.parse(d);restoreHighlights()}}catch(e){}}
+function saveAnnotations(){syncAnnotationData()}
+function loadAnnotations(){
+  try{
+    const tag=document.getElementById('ppr-annotation-data');
+    if(tag){const d=JSON.parse(tag.textContent);if(Array.isArray(d)&&d.length>0){annotations=d;restoreHighlights()}}
+  }catch(e){}
+  syncAnnotationData()
+}
 
 /* --- Popup --- */
 function showPopup(x,y,forHighlight){
@@ -1663,7 +1670,7 @@ function toggleNotesPanel(){
   }else{p.classList.toggle('open')}
   if(t)t.textContent=p.classList.contains('open')?'✕':'💡';
   document.body.classList.toggle('has-notes-open',p.classList.contains('open'));
-  try{localStorage.setItem('ppr-note-panel-open',p.classList.contains('open')?'true':'false')}catch(e){}
+  
 }
 
 function renderNotesList(){
@@ -1699,6 +1706,23 @@ function deleteAnnotation(id){
   hidePopup();renderNotesList();
 }
 
+function syncAnnotationData(){const tag=document.getElementById('ppr-annotation-data');if(tag)tag.textContent=JSON.stringify(annotations)}
+
+async function saveHtml(){
+  syncAnnotationData();
+  const html='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  let name='reading_note.html';
+  try{const p=window.location.pathname;if(p){const m=p.split('/').pop().split('\').pop();if(m)name=m}}catch(e){}
+  try{
+    const h=await window.showSaveFilePicker({suggestedName:name,types:[{description:'HTML',accept:{'text/html':['.html']}}]});
+    const w=await h.createWritable();await w.write(blob);await w.close();
+  }catch(e){
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+    a.click();URL.revokeObjectURL(a.href);
+  }
+}
+
 function clearAllAnnotationsPrompt(){
   if(!confirm('确定清除所有高亮和批注？此操作不可撤销。'))return;
   annotations=[];saveAnnotations();stripExistingHighlights(document.querySelector('.content'));renderNotesList();
@@ -1707,10 +1731,11 @@ function clearAllAnnotationsPrompt(){
 
 /* --- Init --- */
 (function(){
-  try{const o=localStorage.getItem('ppr-note-panel-open');if(o==='true'){document.getElementById('notesPanel')?.classList.add('open');document.body.classList.add('has-notes-open')}}catch(e){}
+  
   const wc=()=>{if(document.querySelector('.content')){loadAnnotations()}else setTimeout(wc,200)};setTimeout(wc,300);
 })();
 </script>
 
+<script id="ppr-annotation-data" type="application/json">[]</script>
 </body>
 </html>

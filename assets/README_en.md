@@ -18,7 +18,7 @@ Convert academic CS/SE PDF papers into a single self-contained HTML reading note
 
 - 🌓 Dark/light mode (persisted to `localStorage`)
 - 📑 Sidebar navigation (IntersectionObserver, collapsible groups)
-- 🖍 In-browser highlighter: select→highlight (6 colors), sticky note editor, sliding panel, cross-session persistence
+- 🖍 In-browser highlighter: select→highlight (6 colors), sticky note editor, sliding panel, manual save to HTML
 - 📐 KaTeX math rendering (inline + display), monospace fallback when offline
 - 🎯 4 organization strategies: paper-structure-aligned / cognition-first / question-driven / persona-driven, with auto-recommendation based on paper type
 - 🔎 Paper type detection (system/algorithm/survey/empirical/position) for strategy recommendation
@@ -149,6 +149,8 @@ Reading note from "Towards Personalized LLM-Powered Agents" (29-page survey, 8 f
 paper-to-html-note/
   SKILL.md
   README.md
+  LICENSE
+  pyproject.toml
   assets/
     README_en.md
     template.html              # Chinese template
@@ -160,7 +162,6 @@ paper-to-html-note/
   references/
     component-catalog.md
     design-system.md
-    index-builder.md
   scripts/
     extract_figures.py
     assemble_figures.py

@@ -1548,10 +1548,54 @@ grep -c 'paper_text.txt\|figures_b64.json\|section_.*\.html\|sections_raw\|assem
 
 ## Note Indexing
 
-Generated notes can be organized with an index page. After the first note is created, ask the user for their notes directory, then run:
+> **Activation**: When the user says "更新索引", "刷新索引", "重建目录", "重建索引", "构建索引", "build index", "refresh index", or similar — follow this section. This applies regardless of whether the user is currently working on a note or not.
+
+Generated notes can be organized with a searchable index page. `scripts/build_manifest.py` scans all `.html` notes in a directory, extracts metadata from `<meta name="paper-*">` tags and annotation data from `<script id="ppr-annotation-data">`, then injects everything into `assets/index-template.html` to produce a self-contained `index.html`.
+
+### First-time setup
+
+When a user asks for an index, ask for their notes directory and run:
 
 ```bash
 python "<skill-dir>/scripts/build_manifest.py" "<notes-directory>"
 ```
 
-This scans all notes in the directory and generates an `index.html` with search, tag filters, and a file tree. See `references/index-builder.md` for details.
+**After the first successful build**, create a clickable refresh script in the notes directory. Detect the user's OS from the environment and create exactly one script:
+
+- **Windows** (`Platform: win32`): create `refresh_index.bat`
+- **macOS / Linux** (`Platform: darwin` or `Platform: linux`): create `refresh_index.sh`
+
+**Important — direct write only**: Write the file using Python's `open().write()` or the Write tool (not `sed`/`echo`/shell redirection) to avoid encoding corruption of non-ASCII paths (e.g. Chinese characters in directory names).
+
+**Windows** (`refresh_index.bat`):
+```batch
+@echo off
+chcp 65001 >nul
+python "<skill-dir>/scripts/build_manifest.py" "<notes-directory>"
+echo.
+pause
+```
+
+**Unix / macOS** (`refresh_index.sh`):
+```bash
+#!/bin/bash
+python3 "<skill-dir>/scripts/build_manifest.py" "<notes-directory>"
+```
+
+Replace `<skill-dir>` and `<notes-directory>` with absolute paths (use `resolve()` to get absolute paths).
+
+### Subsequent refreshes
+
+If `refresh_index.bat` (Windows) or `refresh_index.sh` (Unix/macOS) already exists in the notes directory, tell the user they can simply double-click that script to rebuild the index — no need to invoke the skill again.
+
+If the user moves the notes directory or wants a different template, re-run the first-time setup with the new paths.
+
+### Features
+
+The generated `index.html` provides:
+- **Search**: real-time filtering by title, authors, institution, venue
+- **Tag filters**: 5 paper types (system/algorithm/survey/empirical/position)
+- **File tree**: folders expand/collapse, click to scroll to matching card
+- **Cards**: paper title (serif), type badge, authors/venue/date, annotation count + content preview (up to 2)
+- **Dark/light theme**: persisted to localStorage
+- **Mobile responsive**: sidebar collapses to overlay below 840px

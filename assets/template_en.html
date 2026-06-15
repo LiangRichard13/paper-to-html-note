@@ -853,6 +853,7 @@ mark.hl-flash{animation:hl-flash-pulse .8s ease-out}
 </div>
 </div>
 <div class="notes-panel-footer">
+<button onclick="saveHtml()">💾 Save</button>
 <button style="color:var(--danger)" onclick="clearAllAnnotationsPrompt()">✕ Clear All</button>
 </div>
 </aside>
@@ -1103,7 +1104,7 @@ let activeAnnotationId = null;
     const typeLabels={system:'System',algorithm:'Algorithm',survey:'Survey',empirical:'Empirical',position:'Position'};
     const t=get('paper-title'),ty=get('paper-type'),a=get('paper-authors'),v=get('paper-venue'),d=get('paper-date'),inst=get('paper-institution'),mt=get('paper-method'),kf=get('paper-key-finding');
     if(t){
-      document.title='Paper Reading: '+t;
+      document.title= t;
       const topM=document.querySelector('.top-meta');if(topM)topM.innerHTML='<strong>'+escHtml(t)+'</strong>'+(v?' &middot; '+escHtml(v):'')+(d?' &middot; '+escHtml(d):'');
       const h1=document.querySelector('.section h1');if(h1){const n=h1.childNodes[0];if(n&&n.nodeType===3)n.textContent=t}
     }
@@ -1194,9 +1195,17 @@ function restoreHighlights(){
   bindMarkClicks();renderNotesList();
 }
 
-/* --- Persistence --- */
-function saveAnnotations(){try{localStorage.setItem('ppr-note-annotations',JSON.stringify(annotations))}catch(e){}syncAnnotationData()}
-function loadAnnotations(){try{const d=localStorage.getItem('ppr-note-annotations');if(d){annotations=JSON.parse(d);restoreHighlights()}}catch(e){}syncAnnotationData()}
+/* --- Persistence (manual save only — no localStorage) --- */
+function saveAnnotations(){syncAnnotationData()}
+function loadAnnotations(){
+  /* Annotations survive only via the embedded <script> tag — user must click
+     "Save" to persist them. On reload, they load from the saved file. */
+  try{
+    const tag=document.getElementById('ppr-annotation-data');
+    if(tag){const d=JSON.parse(tag.textContent);if(Array.isArray(d)&&d.length>0){annotations=d;restoreHighlights()}}
+  }catch(e){}
+  syncAnnotationData()
+}
 function syncAnnotationData(){const tag=document.getElementById('ppr-annotation-data');if(tag)tag.textContent=JSON.stringify(annotations)}
 
 /* --- Popup --- */
@@ -1320,7 +1329,6 @@ function toggleNotesPanel(){
   }else{p.classList.toggle('open')}
   if(t)t.textContent=p.classList.contains('open')?'✕':'💡';
   document.body.classList.toggle('has-notes-open',p.classList.contains('open'));
-  try{localStorage.setItem('ppr-note-panel-open',p.classList.contains('open')?'true':'false')}catch(e){}
 }
 
 function renderNotesList(){
@@ -1356,6 +1364,23 @@ function deleteAnnotation(id){
   hidePopup();renderNotesList();
 }
 
+async function saveHtml(){
+  syncAnnotationData(); // ensures annotations are in the DOM before saving
+  const html='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  // Derive filename from the original file path, not document.title
+  let name='reading_note.html';
+  try{const p=window.location.pathname;if(p){const m=p.split('/').pop().split('\\').pop();if(m)name=m}}catch(e){}
+  // Try File System Access API — native Save As dialog with location choice
+  try{
+    const h=await window.showSaveFilePicker({suggestedName:name,types:[{description:'HTML',accept:{'text/html':['.html']}}]});
+    const w=await h.createWritable();await w.write(blob);await w.close();
+  }catch(e){
+    // Fallback: download via temporary link
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+    a.click();URL.revokeObjectURL(a.href);
+  }
+}
 function clearAllAnnotationsPrompt(){
   if(!confirm('Clear all highlights and annotations? This cannot be undone.'))return;
   annotations=[];saveAnnotations();stripExistingHighlights(document.querySelector('.content'));renderNotesList();
@@ -1364,7 +1389,6 @@ function clearAllAnnotationsPrompt(){
 
 /* --- Init --- */
 (function(){
-  try{const o=localStorage.getItem('ppr-note-panel-open');if(o==='true'){document.getElementById('notesPanel')?.classList.add('open');document.body.classList.add('has-notes-open')}}catch(e){}
   const wc=()=>{if(document.querySelector('.content')){loadAnnotations()}else setTimeout(wc,200)};setTimeout(wc,300);
 })();
 </script>
