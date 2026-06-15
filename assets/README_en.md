@@ -117,13 +117,25 @@ python scripts/extract_figures.py paper.pdf --dpi 200 --save-images
 
 ## Note Indexing
 
-Generated notes can be organized with a browsable index page. Run in your notes directory:
+Generated notes can be organized with a browsable index page.
+
+### 🏆 Recommended: Via Skill Invocation
+
+In Claude Code, just say **"build index"** (or "更新索引" / "refresh index"), and the skill will:
+
+1. Scan your notes directory and extract metadata from each note
+2. Generate a self-contained `index.html` with search, type filters, file tree, and annotation previews
+3. **Create a refresh script after first run** (`refresh_index.bat` on Windows, `refresh_index.sh` on macOS/Linux)
+
+After that, double-click the script to refresh the index anytime — no need to re-invoke the skill.
+
+### ⚙️ Advanced: Direct Python Usage
 
 ```bash
 python scripts/build_manifest.py /path/to/notes/dir
 ```
 
-This produces a self-contained `index.html` with search, paper-type filters, file tree navigation, and annotation previews. See the Note Indexing section in `SKILL.md` for details.
+See the Note Indexing section in `SKILL.md` for details.
 
 ---
 

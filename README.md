@@ -117,13 +117,25 @@ python scripts/extract_figures.py paper.pdf --dpi 200 --save-images
 
 ## 笔记索引
 
-生成的笔记可以通过索引页进行浏览和检索。在笔记目录下运行：
+生成的笔记可以通过索引页进行浏览和检索。
+
+### 🏆 推荐：通过 Skill 调用
+
+在 Claude Code 中，说 **"更新索引"**（或"刷新索引"/"重建目录"/"build index"等），skill 会自动：
+
+1. 扫描你的笔记目录，提取每篇笔记的元数据
+2. 生成带搜索、类型过滤、文件树导航的自包含 `index.html`
+3. **首次运行后自动创建刷新脚本**（Windows 下生成 `refresh_index.bat`，macOS/Linux 下生成 `refresh_index.sh`）
+
+后续只需双击该脚本即可刷新索引，无需再次调用 skill。
+
+### ⚙️ 高级：直接使用 Python 脚本
 
 ```bash
 python scripts/build_manifest.py /path/to/notes/dir
 ```
 
-这会生成一个自包含的 `index.html`，支持搜索、按论文类型过滤、文件树导航、批注预览。详情见 `SKILL.md` 中的 Note Indexing 节，或通过 `/paper-to-html-note` skill 的"构建索引"功能自动创建。
+详情见 `SKILL.md` 中的 Note Indexing 节。
 
 ---
 
