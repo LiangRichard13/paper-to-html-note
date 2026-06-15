@@ -115,6 +115,18 @@ python scripts/extract_figures.py paper.pdf --dpi 200 --save-images
 
 ---
 
+## 笔记索引
+
+生成的笔记可以通过索引页进行浏览和检索。在笔记目录下运行：
+
+```bash
+python scripts/build_manifest.py /path/to/notes/dir
+```
+
+这会生成一个自包含的 `index.html`，支持搜索、按论文类型过滤、文件树导航、批注预览。详情见 `SKILL.md` 中的 Note Indexing 节，或通过 `/paper-to-html-note` skill 的"构建索引"功能自动创建。
+
+---
+
 ## 上下文安全（Pipeline B）
 
 Pipeline B 通过文件 I/O 隔离，base64 图片数据不进入 LLM 上下文：

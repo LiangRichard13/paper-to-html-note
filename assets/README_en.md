@@ -115,6 +115,18 @@ python scripts/extract_figures.py paper.pdf --dpi 200 --save-images
 
 ---
 
+## Note Indexing
+
+Generated notes can be organized with a browsable index page. Run in your notes directory:
+
+```bash
+python scripts/build_manifest.py /path/to/notes/dir
+```
+
+This produces a self-contained `index.html` with search, paper-type filters, file tree navigation, and annotation previews. See the Note Indexing section in `SKILL.md` for details.
+
+---
+
 ## Context Safety (Pipeline B)
 
 Pipeline B isolates base64 image data from LLM context through file I/O:
