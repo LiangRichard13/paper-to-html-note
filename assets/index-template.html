@@ -74,12 +74,12 @@ body::before{content:'';position:fixed;inset:0;background:url("data:image/svg+xm
 .filter-tags{display:flex;flex-wrap:wrap;gap:6px}
 .filter-tag{padding:4px 10px;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid var(--border);transition:all .15s;user-select:none;font-family:var(--sans);color:var(--text2);background:var(--card)}
 .filter-tag:hover{border-color:var(--accent);color:var(--text)}
-.filter-tag.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-.filter-tag.system.active{background:var(--type-system);border-color:var(--type-system)}
-.filter-tag.algorithm.active{background:var(--type-algorithm);border-color:var(--type-algorithm)}
-.filter-tag.survey.active{background:var(--type-survey);border-color:var(--type-survey)}
-.filter-tag.empirical.active{background:var(--type-empirical);border-color:var(--type-empirical)}
-.filter-tag.position.active{background:var(--type-position);border-color:var(--type-position)}
+.filter-tag.active{background:var(--card);color:var(--accent);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-lt)}
+.filter-tag.system.active{border-color:var(--type-system);color:var(--type-system);box-shadow:0 0 0 1px color-mix(in srgb,var(--type-system) 15%,transparent)}
+.filter-tag.algorithm.active{border-color:var(--type-algorithm);color:var(--type-algorithm);box-shadow:0 0 0 1px color-mix(in srgb,var(--type-algorithm) 15%,transparent)}
+.filter-tag.survey.active{border-color:var(--type-survey);color:var(--type-survey);box-shadow:0 0 0 1px color-mix(in srgb,var(--type-survey) 15%,transparent)}
+.filter-tag.empirical.active{border-color:var(--type-empirical);color:var(--type-empirical);box-shadow:0 0 0 1px color-mix(in srgb,var(--type-empirical) 15%,transparent)}
+.filter-tag.position.active{border-color:var(--type-position);color:var(--type-position);box-shadow:0 0 0 1px color-mix(in srgb,var(--type-position) 15%,transparent)}
 .tag-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:middle}
 .tag-dot.system{background:var(--type-system)}
 .tag-dot.algorithm{background:var(--type-algorithm)}
