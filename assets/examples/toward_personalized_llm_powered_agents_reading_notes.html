@@ -1713,7 +1713,7 @@ async function saveHtml(){
   const html='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});
   let name='reading_note.html';
-  try{const p=window.location.pathname;if(p){const m=p.split('/').pop().split('\').pop();if(m)name=m}}catch(e){}
+  try{const p=window.location.pathname;if(p){const m=p.split('/').pop();if(m)name=m}}catch(e){}
   try{
     const h=await window.showSaveFilePicker({suggestedName:name,types:[{description:'HTML',accept:{'text/html':['.html']}}]});
     const w=await h.createWritable();await w.write(blob);await w.close();

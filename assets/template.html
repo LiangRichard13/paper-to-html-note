@@ -1380,7 +1380,7 @@ async function saveHtml(){
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});
   // Derive filename from the original file path, not document.title
   let name='reading_note.html';
-  try{const p=window.location.pathname;if(p){const m=p.split('/').pop().split('\\').pop();if(m)name=m}}catch(e){}
+  try{const p=window.location.pathname;if(p){const m=p.split('/').pop();if(m)name=m}}catch(e){}
   // Try File System Access API — native Save As dialog with location choice
   try{
     const h=await window.showSaveFilePicker({suggestedName:name,types:[{description:'HTML',accept:{'text/html':['.html']}}]});
