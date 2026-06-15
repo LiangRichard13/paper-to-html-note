@@ -113,8 +113,13 @@ body::before{content:'';position:fixed;inset:0;background:url("data:image/svg+xm
    ============================================================ */
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;cursor:pointer;transition:all .25s cubic-bezier(0.25,0.1,0.25,1);box-shadow:var(--shadow-sm);position:relative;overflow:hidden;animation:card-in .5s ease-out both}
-.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:var(--accent)}
+.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
 .card:hover .card-accent-bar{opacity:1}
+.card.system:hover{border-color:var(--type-system)}
+.card.algorithm:hover{border-color:var(--type-algorithm)}
+.card.survey:hover{border-color:var(--type-survey)}
+.card.empirical:hover{border-color:var(--type-empirical)}
+.card.position:hover{border-color:var(--type-position)}
 .card-accent-bar{position:absolute;top:0;left:0;right:0;height:3px;opacity:0;transition:opacity .25s}
 .card-accent-bar.system{background:var(--type-system)}
 .card-accent-bar.algorithm{background:var(--type-algorithm)}
@@ -363,7 +368,7 @@ function renderCards(){
     if(n.date)metaParts.push(escHtml(n.date));
     const metaStr=metaParts.join(' <span class="sep">·</span> ');
 
-    html+='<div class="card" data-path="'+escAttr(n.path)+'" style="animation-delay:'+(i*0.04)+'s" onclick="openNote(\''+escAttr(n.path)+'\')">';
+    html+='<div class="card'+(type?' '+type:'')+'" data-path="'+escAttr(n.path)+'" style="animation-delay:'+(i*0.04)+'s" onclick="openNote(\''+escAttr(n.path)+'\')">';
     html+='<div class="card-accent-bar '+type+'"></div>';
     html+='<div class="card-title">'+escHtml(n.paper_title||n.title||n.path)+'</div>';
     html+='<div class="card-meta">';
