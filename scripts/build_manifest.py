@@ -26,7 +26,6 @@ def extract_metadata(filepath: str) -> dict:
         if val:
             if key == 'type': meta['paper_type'] = val
             elif key == 'title': meta['paper_title'] = val
-            elif key == 'subtitle': meta['subtitle'] = val
             elif key in ('authors','venue','date','institution','method','key-finding'):
                 meta[key.replace('-','_')] = val
 

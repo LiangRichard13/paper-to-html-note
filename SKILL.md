@@ -687,17 +687,18 @@ cp "<skill-dir>/assets/template_en.html" "<output-dir>/<paper-short-name>_readin
 
 ```html
 <meta name="paper-title" content="[PAPER_TITLE]">
-<meta name="paper-type" content="[system|algorithm|survey|empirical|position]">
+<meta name="paper-type" content="system"><!-- valid: system | algorithm | survey | empirical | position -->
 <meta name="paper-authors" content="[AUTHORS]">
 <meta name="paper-venue" content="[VENUE]">
 <meta name="paper-date" content="[DATE]">
 <meta name="paper-institution" content="[INSTITUTIONS]">
 <meta name="paper-method" content="[METHOD_SUMMARY]">
 <meta name="paper-key-finding" content="[KEY_INSIGHT]">
-<meta name="paper-subtitle" content="[SUBTITLE]">
 ```
 
-Use the paper type detected in Phase 0a step 6.5. Do not leave any `content=""` empty. For `paper-subtitle`, write a one-line summary of the paper's contribution in the annotation language.
+Use the paper type detected in Phase 0a step 6.5. Pick exactly one value: `system`, `algorithm`, `survey`, `empirical`, or `position`.
+
+> ⚠️ **CRITICAL**: The index page generator (`build_manifest.py`) derives its type tags, color bars, and filter buttons from this meta tag. **Leaving `paper-type` empty makes the note uncategorizable in the index.** All 8 meta tags must have non-empty `content`. Verify each one before proceeding.
 
 ### A4.3 Fill content placeholders
 
@@ -707,7 +708,7 @@ The template uses `<!-- SECTION: NAME --> ... <!-- /SECTION: NAME -->` comments 
 
 | Placeholder | What to fill |
 |---|---|
-| `<h1>` title and subtitle in `SECTION: INTRO_HEADING` | Auto-populated by `initMeta()` from `paper-title` and `paper-subtitle` meta tags. Verify they render, but no manual editing needed. |
+| `<h1>` title in `SECTION: INTRO_HEADING` | Auto-populated by `initMeta()` `paper-title` meta tag. Verify it renders, but no manual editing needed. |
 | Core thesis callout in `SECTION: INTRO_OVERVIEW` | `.callout.purple` with paper's key insight |
 | `SECTION: TLDR_*` | Summary grid metrics + one-liner |
 | `SECTION: FIGURES` (optional gallery) | Optional consolidated view. Do NOT put all figures here. See below. |
@@ -786,7 +787,7 @@ Before declaring the output complete, verify:
 5. **Content accuracy**: Compare key claims and numbers against the extracted paper text
 6. **No orphan components**: Every rendered component corresponds to actual paper content
 7. **Language consistency**: All user-facing text is in the chosen annotation language (Chinese or English). No mixed-language annotations except preserved terms.
-8. **No leftover placeholders**: No `[PLACEHOLDER_TEXT]` remains in the output. All 9 `<meta name="paper-*">` tags in `<head>` have non-empty `content` values.
+8. **No leftover placeholders**: No `[PLACEHOLDER_TEXT]` remains in the output. All 8 `<meta name="paper-*">` tags in `<head>` have non-empty `content` values.
 8b. **No orphaned bold text**: `<strong>` or `<b>` text should flow inline within paragraphs, NOT appear alone on its own line separated by `<br>` or paragraph breaks. Bold text wrapped in isolation looks unintended.
 9. **Base64 integrity**: Open the HTML in a browser; all figures render without broken-image icons. Each `<img src="data:image/png;base64,...">` is well-formed
 10. **Image sizing**: No inline image exceeds 100% container width or 500px height; `max-width` and `max-height` CSS constraints are in effect
@@ -1367,13 +1368,26 @@ B4 spans **four execution boundaries**: inside the Workflow script → main agen
 │   • Structural validation — reports exact issues                    │
 │   • Div balance check — FAILS if any section has open>close         │
 │   • Prints warnings for leftover placeholders                       │
+│                                                                     │
+│ # 4. Write paper_meta.json with Phase 0a paper metadata (zero LLM tokens) │
+│ echo '{                                                        │
+│   "paper_title": "...",                                               │
+│   "paper_type": "system",          ← valid: system | algorithm | survey | empirical | position │
+│   "paper_authors": "...",                                             │
+│   "paper_venue": "...",                                               │
+│   "paper_date": "...",                                                │
+│   "paper_institution": "...",                                         │
+│   "paper_method": "...",                                              │
+│   "paper_key_finding": "..."                                          │
+│ }' > <output-dir>/paper_meta.json                                     │
+│ # Use the actual values from Phase 0a. ALL 8 fields must be filled.  │
 └────────────────────────────────────────────────────────┘
                          ↓
 ┌── FINAL AGENT ───────────────────────────────────────┐
-│ B4c. Read sections_meta.json and choose the correct    │
-│      template based on annotation language:             │
-│      - Chinese: assets/template.html                     │
-│      - English:  assets/template_en.html                 │
+│ B4c. Read sections_meta.json + paper_meta.json.           │
+│      sections_meta.json → build sidebar links.             │
+│      paper_meta.json → fill <meta> tags.                   │
+│      Then choose the correct template:                     │
 │      Read the chosen template's <head> and <script>     │
 │      sections (instructions embedded in HTML comments). │
 │                                                         │
@@ -1400,9 +1414,8 @@ B4 spans **four execution boundaries**: inside the Workflow script → main agen
 │                 in Phase 0b (or "paper-structure-aligned" │
 │                 if default).                                │
 │                 **Fill all <meta name="paper-*"> tags**    │
-│                 with Phase 0a metadata (title, type,      │
-│                 authors, venue, date, institution,        │
-│                 method, key-finding). See A4.2 template.   │
+│                 from paper_meta.json values. See A4.2      │
+│                 for the HTML syntax.                       │
 │                 + intro section (title, meta, thesis)     │
 │                 + TL;DR section (summary grid)            │
 │      tail.html: takeaways section (callouts + table)      │
@@ -1466,7 +1479,7 @@ The Workflow script is a pure JS sandbox with no filesystem access and no Node.j
 Pipeline B has an inherent limitation: the final agent (B4c) reads pre-written sections and can do structural checks, but **cannot deeply verify every claim**. The B3.5 review phase is the main safeguard for content accuracy.
 
 **What B4c verifies** (structural, no paper text needed):
-- All 9 `<meta name="paper-*">` tags in `<head>` are filled (no `content=""` or bracket placeholders)
+- All 8 `<meta name="paper-*">` tags in `<head>` are filled (no `content=""` or bracket placeholders)
 - No `<!-- FIG:` placeholders remain (assemble_figures.py also reports this)
 - Section divs are well-formed, tags properly closed
 - h2 numbering is contiguous (1, 2, 3...)
@@ -1497,6 +1510,7 @@ After the HTML passes all quality checks, delete all intermediate files:
 ```bash
 rm -f <output-dir>/paper_text.txt \
       <output-dir>/figures_b64.json \
+      <output-dir>/paper_meta.json \
       <output-dir>/section_*.html \
       <output-dir>/sections_meta.json \
       <output-dir>/sections_raw.html \

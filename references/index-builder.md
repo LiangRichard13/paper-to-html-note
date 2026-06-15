@@ -15,7 +15,7 @@ Open `index.html` in any browser. No server needed.
 ## How It Works
 
 1. `build_manifest.py` reads each `.html` file in the directory
-2. Extracts metadata from `<meta name="paper-*">` tags (title, type, authors, venue, date, institution, method, key finding, subtitle)
+2. Extracts metadata from `<meta name="paper-*">` tags (title, type, authors, venue, date, institution, method, key finding)
 3. Reads annotation data from `<script id="ppr-annotation-data">` (count + note previews)
 4. Injects everything into `assets/index-template.html` and writes `index.html`
 

@@ -95,7 +95,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 .section{background:var(--card);border-radius:var(--radius);padding:26px 30px;margin-bottom:20px;border:1px solid var(--border);box-shadow:var(--shadow);transition:background .3s}
 .section:target{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-lt)}
 h1{font-size:28px;line-height:1.3;margin-bottom:6px}
-h1 .sub{font-size:15px;font-weight:400;color:var(--text2);display:block;margin-top:4px}
 h2{font-size:21px;margin-bottom:14px;padding-bottom:7px;border-bottom:2px solid var(--accent-lt);display:flex;align-items:center;gap:10px}
 h2 .num{background:var(--accent);color:#fff;width:27px;height:27px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
 h3{font-size:17px;margin:18px 0 8px;color:var(--text)}

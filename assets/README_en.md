@@ -127,7 +127,7 @@ Pipeline B isolates base64 image data from LLM context through file I/O:
 | B3.5a Quality review | Structured review JSON | <1KB |
 | B3.5b Coherence validation | Pairwise edits + div safety | 0 (shell) |
 | B4 Assembly | `assemble_figures.py` + concatenation | **0 tokens** |
-| B4c Final check | Reads `sections_meta.json` only | <2KB |
+| B4c Final check | Reads `sections_meta.json` + `paper_meta.json` | <2KB |
 
 ---
 
