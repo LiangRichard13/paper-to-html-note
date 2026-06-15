@@ -1370,17 +1370,22 @@ B4 spans **four execution boundaries**: inside the Workflow script → main agen
 │   • Prints warnings for leftover placeholders                       │
 │                                                                     │
 │ # 4. Write paper_meta.json with Phase 0a paper metadata (zero LLM tokens) │
-│ echo '{                                                        │
-│   "paper_title": "...",                                               │
-│   "paper_type": "system",          ← valid: system | algorithm | survey | empirical | position │
-│   "paper_authors": "...",                                             │
-│   "paper_venue": "...",                                               │
-│   "paper_date": "...",                                                │
-│   "paper_institution": "...",                                         │
-│   "paper_method": "...",                                              │
-│   "paper_key_finding": "..."                                          │
-│ }' > <output-dir>/paper_meta.json                                     │
-│ # Use the actual values from Phase 0a. ALL 8 fields must be filled.  │
+│ python -c "                                                             │
+│ import json                                                             │
+│ meta = {                                                                │
+│   'paper_title': '...',                       ← actual title from Phase 0a │
+│   'paper_type': '...',       ← system|algorithm|survey|empirical|position │
+│   'paper_authors': '...',                                                │
+│   'paper_venue': '...',                                                  │
+│   'paper_date': '...',                                                   │
+│   'paper_institution': '...',                                            │
+│   'paper_method': '...',                                                 │
+│   'paper_key_finding': '...'                                             │
+│ }                                                                        │
+│ with open('<output-dir>/paper_meta.json','w',encoding='utf-8') as f:    │
+│   json.dump(meta,f,ensure_ascii=False)                                   │
+│ "                                                                        │
+│ # ALL 8 fields must be filled (avoids shell encoding issues on Windows) │
 └────────────────────────────────────────────────────────┘
                          ↓
 ┌── FINAL AGENT ───────────────────────────────────────┐

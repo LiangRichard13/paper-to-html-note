@@ -850,6 +850,7 @@ mark.hl-flash{animation:hl-flash-pulse .8s ease-out}
 <div class="note-empty-icon">📝</div>
 <p>选中文本后高亮</p>
 <p style="font-size:11px;margin-top:4px;opacity:.5">点击高亮区域可添加批注</p>
+<p style="font-size:10px;margin-top:6px;color:var(--warn)">💡 完成后点击下方保存按钮写入文件</p>
 </div>
 </div>
 <div class="notes-panel-footer">
@@ -1106,7 +1107,7 @@ let activeAnnotationId = null; // track which highlight we're editing (click-on-
     if(t){
       document.title= t;
       const topM=document.querySelector('.top-meta');if(topM)topM.innerHTML='<strong>'+escHtml(t)+'</strong>'+(v?' &middot; '+escHtml(v):'')+(d?' &middot; '+escHtml(d):'');
-      const h1=document.querySelector('.section h1');if(h1){const n=h1.childNodes[0];if(n&&n.nodeType===3)n.textContent=t}
+      const h1=document.querySelector('.section h1');if(h1)h1.textContent=t
     }
     if(ty){const badge=document.querySelector('.top-badge');if(badge)badge.textContent=typeMap[ty]||ty}
     const labels=[['paper-authors','📄 作者',a],['paper-institution','🏫 机构',inst],['paper-method','🔬 方法',mt],['paper-key-finding','🎯 核心',kf]];
@@ -1204,8 +1205,7 @@ function loadAnnotations(){
     const tag=document.getElementById('ppr-annotation-data');
     if(tag){const d=JSON.parse(tag.textContent);if(Array.isArray(d)&&d.length>0){annotations=d;restoreHighlights()}}
   }catch(e){}
-  syncAnnotationData()
-}
+  }
 function syncAnnotationData(){const tag=document.getElementById('ppr-annotation-data');if(tag)tag.textContent=JSON.stringify(annotations)}
 
 /* --- Popup --- */
@@ -1382,10 +1382,12 @@ async function saveHtml(){
   let name='reading_note.html';
   try{const p=window.location.pathname;if(p){const m=p.split('/').pop();if(m)name=m}}catch(e){}
   // Try File System Access API — native Save As dialog with location choice
+  // Chrome remembers the last-used directory for showSaveFilePicker automatically
   try{
     const h=await window.showSaveFilePicker({suggestedName:name,types:[{description:'HTML',accept:{'text/html':['.html']}}]});
     const w=await h.createWritable();await w.write(blob);await w.close();
   }catch(e){
+    if(e.name==='AbortError')return; // user cancelled — do nothing
     // Fallback: download via temporary link
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
     a.click();URL.revokeObjectURL(a.href);
@@ -1400,6 +1402,9 @@ function clearAllAnnotationsPrompt(){
 /* --- Init --- */
 (function(){
   const wc=()=>{if(document.querySelector('.content')){loadAnnotations()}else setTimeout(wc,200)};setTimeout(wc,300);
+  // Warn on close if annotations exist but were not saved to file
+  window.addEventListener('beforeunload',function(e){
+    if(annotations.length>0){e.preventDefault();e.returnValue=''}});
 })();
 </script>
 

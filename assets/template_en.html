@@ -850,6 +850,7 @@ mark.hl-flash{animation:hl-flash-pulse .8s ease-out}
 <div class="note-empty-icon">📝</div>
 <p>Highlight text to annotate</p>
 <p style="font-size:11px;margin-top:4px;opacity:.5">Click highlighted text to add notes</p>
+<p style="font-size:10px;margin-top:6px;color:var(--warn)">💡 Click Save below to persist annotations</p>
 </div>
 </div>
 <div class="notes-panel-footer">
@@ -1106,7 +1107,7 @@ let activeAnnotationId = null;
     if(t){
       document.title= t;
       const topM=document.querySelector('.top-meta');if(topM)topM.innerHTML='<strong>'+escHtml(t)+'</strong>'+(v?' &middot; '+escHtml(v):'')+(d?' &middot; '+escHtml(d):'');
-      const h1=document.querySelector('.section h1');if(h1){const n=h1.childNodes[0];if(n&&n.nodeType===3)n.textContent=t}
+      const h1=document.querySelector('.section h1');if(h1)h1.textContent=t
     }
     if(ty){const badge=document.querySelector('.top-badge');if(badge)badge.textContent=typeLabels[ty]||ty}
     const labels=[['paper-authors','📄 Authors',a],['paper-institution','🏫 Institution',inst],['paper-method','🔬 Method',mt],['paper-key-finding','🎯 Key Finding',kf]];
@@ -1204,8 +1205,7 @@ function loadAnnotations(){
     const tag=document.getElementById('ppr-annotation-data');
     if(tag){const d=JSON.parse(tag.textContent);if(Array.isArray(d)&&d.length>0){annotations=d;restoreHighlights()}}
   }catch(e){}
-  syncAnnotationData()
-}
+  }
 function syncAnnotationData(){const tag=document.getElementById('ppr-annotation-data');if(tag)tag.textContent=JSON.stringify(annotations)}
 
 /* --- Popup --- */
@@ -1372,10 +1372,12 @@ async function saveHtml(){
   let name='reading_note.html';
   try{const p=window.location.pathname;if(p){const m=p.split('/').pop();if(m)name=m}}catch(e){}
   // Try File System Access API — native Save As dialog with location choice
+  // Chrome remembers the last-used directory for showSaveFilePicker automatically
   try{
     const h=await window.showSaveFilePicker({suggestedName:name,types:[{description:'HTML',accept:{'text/html':['.html']}}]});
     const w=await h.createWritable();await w.write(blob);await w.close();
   }catch(e){
+    if(e.name==='AbortError')return; // user cancelled — do nothing
     // Fallback: download via temporary link
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
     a.click();URL.revokeObjectURL(a.href);
@@ -1390,6 +1392,7 @@ function clearAllAnnotationsPrompt(){
 /* --- Init --- */
 (function(){
   const wc=()=>{if(document.querySelector('.content')){loadAnnotations()}else setTimeout(wc,200)};setTimeout(wc,300);
+  window.addEventListener('beforeunload',function(e){if(annotations.length>0){e.preventDefault();e.returnValue=''}});
 })();
 </script>
 

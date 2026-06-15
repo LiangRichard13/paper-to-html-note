@@ -570,7 +570,7 @@ When a figure is referenced multiple times within the HTML (e.g., the same archi
 - Sticky note editor: fixed-position `.sticky-editor` with warm paper texture background, subtle rotation (0.5°), pin graphic, spring animation on open.
 - Notes panel: `.notes-panel` slides from right edge (320px wide), default collapsed showing only a 28px arrow handle. Uses `transform: translateX(calc(100% - 36px))` transition, never pushes content.
 - Notes list: Each item rendered as a mini sticky card (`transform: rotate(0.3deg)` alternating angles), with color bar, truncated text, timestamp, and hover-revealed edit/delete buttons.
-- Persistence: localStorage key `ppr-note-annotations`, save on every mutation, restore on page load.
+- Persistence: manual save via `saveHtml()` button. Annotations are serialized into an embedded `<script id="ppr-annotation-data">` tag — user must click "Save" to persist the updated file to disk. On reload, annotations are restored from this tag. No localStorage is used.
 
 **Key CSS variables**: `--hl-yellow` through `--hl-purple` (highlighter colors), `--sticky-bg` (note paper background), `--sticky-shadow` (layered paper shadow).
 
