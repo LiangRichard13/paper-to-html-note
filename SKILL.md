@@ -756,9 +756,30 @@ Based on your Phase A3 content-to-component mapping AND the chosen organization 
 
 Template provides pre-built section blocks for: values (mini-cards), principles (pboxes), architecture (tables), mechanisms (tables + code + trace), comparison, discussion (tension matrix + evidence), future directions, methodology.
 
-### A4.5 Adjust the sidebar
+### A4.5 Rebuild the sidebar from the final section list (HARD REQUIREMENT)
 
-Update the sidebar `<details>` groups and `<a>` links to match your final set of sections. Each section's `id` must match its sidebar `href`.
+The template's default sidebar contains **placeholder** link text and IDs (核心价值/设计原则/架构总览/核心机制/图示速览/对比分析/讨论与权衡/方法论/未来方向, hrefs `#values`/`#principles`/`#architecture`/etc.). These are scaffolding, not final content. They are the most common source of TOC/section drift bugs.
+
+**Do not** leave any template-default sidebar entry in the output. Treat the template sidebar as 100% throwaway — every `<a>` must be regenerated from the actual section list you ended up with.
+
+Procedure (mandatory):
+
+1. **Enumerate the final section list.** After A4.4 finishes, list every `<div class="section" id="...">` you actually emitted, in document order, with its `<h2>` heading text.
+2. **Group sections into 2-4 `<details>` blocks** using the strategy chosen in Phase 1 (see Organization Strategy Reference for per-strategy grouping rules). Group titles: 概览 / 核心分析 / 详细机制 / 扩展讨论 / 参考与总结 (zh) or Overview / Core Analysis / Detailed Mechanisms / Extended Discussion / Reference & Summary (en). Use the same language as the rest of the note.
+3. **Build each `<a>` from the section's own data, not from memory:**
+   - `href` MUST equal the section's `id` attribute, verbatim (no translation, no abbreviation, no slug rewrite)
+   - Visible text MUST be the section's `<h2>` heading text, with the leading numeric prefix (`1` / `2` / `📋` / `📌`) preserved
+   - Do not invent new section names that don't correspond to a real h2
+4. **If the note has more than 9 sections** (e.g., a 11-section deep paper), the template's default 4-block / 9-slot layout is structurally too small. **Add a new `<details>` block** (e.g., "详细机制" / "Detailed Mechanisms") to hold the overflow sections. Do not drop sections from the sidebar.
+5. **Do not keep placeholder entries** like "图示速览（可选）" / "Adjust links based on paper content" HTML comments that ship with the template. Either fill them with real content or delete the whole `<a>` line.
+
+Self-check (must pass before moving to A4.6):
+
+- [ ] For every `<a href="#xxx">` in the sidebar, `id="xxx"` exists somewhere in the document
+- [ ] For every section `<div class="section" id="xxx">`, there is exactly one `<a href="#xxx">` in the sidebar
+- [ ] The visible text of each `<a>` matches its target h2 heading (substring match, ≥ 4 characters overlap)
+- [ ] No template placeholder text ("核心价值" / "设计原则" / "架构总览" / "图示速览（可选）" / "Adjust links based on...") remains in the final HTML unless it coincidentally matches a real h2
+- [ ] Total `<a>` count in sidebar == total section `<div>` count (excluding `<div id="math">` if present, which is a formula block not a navigable section)
 
 ### A4.6 Apply enhancement styles (optional)
 
@@ -782,7 +803,7 @@ Before declaring the output complete, verify:
 
 1. **CSS completeness**: All 6 semantic color families have both light and dark variables
 2. **JS completeness**: Progress bar, back-to-top, IntersectionObserver sidebar highlight, theme toggle + localStorage persistence, print handler, entrance animation, lightbox (click-to-zoom + keyboard nav), mobile sidebar toggle, code block copy button, table horizontal scroll detection — all 10 features present
-3. **Sidebar**: Links match section IDs, all `<details>` are `open`
+3. **Sidebar ↔ section alignment (HARD GATE)**: Every sidebar `<a href="#xxx">` must point to an existing `id="xxx"`, and every section `<div class="section" id="xxx">` (except `<div id="math">`) must have a corresponding sidebar link. Visible link text must overlap the target `<h2>` text by ≥ 4 characters. No template placeholder text may remain. If any check fails, **stop and fix the sidebar before declaring the output complete** — do not proceed to delivery. All `<details>` blocks must be `open` by default.
 4. **Print styles**: `@media print` hides sidebar, top-bar, progress-bar, btt; reveals all entrance-animated sections
 5. **Content accuracy**: Compare key claims and numbers against the extracted paper text
 6. **No orphan components**: Every rendered component corresponds to actual paper content

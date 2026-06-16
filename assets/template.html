@@ -65,6 +65,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 .top-spacer{flex:1}
 .top-btn{background:var(--code-bg);border:1px solid var(--border);padding:5px 12px;border-radius:6px;color:var(--text);font-size:12px;cursor:pointer;transition:all .2s;font-family:var(--sans)}
 .top-btn:hover{background:var(--accent-lt);color:var(--accent)}
+.top-btn-save{background:var(--accent);color:#fff;border-color:var(--accent-dk);font-weight:600}
+.top-btn-save:hover{background:var(--accent-dk);color:#fff}
 
 /* Main layout */
 .container{max-width:1280px;margin:0 auto;padding:24px;display:flex;gap:32px}
@@ -454,6 +456,7 @@ mark.hl-flash{animation:hl-flash-pulse .8s ease-out}
 <span class="top-spacer"></span>
 <button class="top-btn" onclick="toggleTheme()" title="切换暗色/亮色模式">🌓 主题</button>
 <button class="top-btn" onclick="window.print()" title="打印">🖨 打印</button>
+<button class="top-btn top-btn-save" onclick="saveHtml()" title="把批注保存到本地 HTML 文件">💾 保存</button>
 </div></div>
 
 <!-- ====== MAIN LAYOUT ====== -->
@@ -850,12 +853,11 @@ mark.hl-flash{animation:hl-flash-pulse .8s ease-out}
 <div class="note-empty-icon">📝</div>
 <p>选中文本后高亮</p>
 <p style="font-size:11px;margin-top:4px;opacity:.5">点击高亮区域可添加批注</p>
-<p style="font-size:10px;margin-top:6px;color:var(--warn)">💡 完成后点击下方保存按钮写入文件</p>
+<p style="font-size:10px;margin-top:6px;color:var(--warn)">💡 完成后点击顶部「💾 保存」按钮写入文件</p>
 </div>
 </div>
 <div class="notes-panel-footer">
-<button onclick="saveHtml()">💾 保存批注</button>
-<button style="color:var(--danger)" onclick="clearAllAnnotationsPrompt()">✕ 清除全部</button>
+<button style="width:100%;color:var(--danger)" onclick="clearAllAnnotationsPrompt()">✕ 清除全部</button>
 </div>
 </aside>
 <div class="notes-overlay" onclick="toggleNotesPanel()"></div>
@@ -1197,7 +1199,7 @@ function restoreHighlights(){
 }
 
 /* --- Persistence (manual save only — no localStorage) --- */
-function saveAnnotations(){syncAnnotationData()}
+function saveAnnotations(){window._annotationsPersisted=false;syncAnnotationData()}
 function loadAnnotations(){
   /* Annotations survive only via the embedded <script> tag — user must click
      "Save" to persist them. On reload, they load from the saved file. */
@@ -1386,11 +1388,13 @@ async function saveHtml(){
   try{
     const h=await window.showSaveFilePicker({suggestedName:name,types:[{description:'HTML',accept:{'text/html':['.html']}}]});
     const w=await h.createWritable();await w.write(blob);await w.close();
+    window._annotationsPersisted = true; // save succeeded — suppress beforeunload warning
   }catch(e){
     if(e.name==='AbortError')return; // user cancelled — do nothing
     // Fallback: download via temporary link
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
     a.click();URL.revokeObjectURL(a.href);
+    window._annotationsPersisted = true; // fallback download triggered — suppress beforeunload warning
   }
 }
 function clearAllAnnotationsPrompt(){
@@ -1403,8 +1407,18 @@ function clearAllAnnotationsPrompt(){
 (function(){
   const wc=()=>{if(document.querySelector('.content')){loadAnnotations()}else setTimeout(wc,200)};setTimeout(wc,300);
   // Warn on close if annotations exist but were not saved to file
+  // Skip the warning if the user has already saved the HTML to disk
+  // (window._annotationsPersisted is set in saveHtml() after a successful save)
   window.addEventListener('beforeunload',function(e){
-    if(annotations.length>0){e.preventDefault();e.returnValue=''}});
+    if(annotations.length>0 && !window._annotationsPersisted){
+      // Custom Chinese confirm — modern browsers ignore e.returnValue text,
+      // but a synchronous confirm() still works in Chromium-based browsers and
+      // gives the user a clearer message than the native dialog alone.
+      const msg='当前页面有 '+annotations.length+' 条批注尚未保存到本地文件。\n离开后这些批注会丢失。\n\n确定要离开吗？';
+      if(!confirm(msg)){e.preventDefault();e.returnValue='';return}
+      e.preventDefault();e.returnValue=msg;
+    }
+  });
 })();
 </script>
 
