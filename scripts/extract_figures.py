@@ -158,8 +158,25 @@ def extract_figure_regions(doc, dpi=200):
                             return True
                     return False
 
-                # Collect ALL drawing cells in the vertical figure band
-                # (use full text-area width for the initial search)
+                # Column filter: only include cells on the caption's side.
+                # In two-column layouts, drawings from the OPPOSITE column
+                # (e.g. a facing table) would inflate draw_width and
+                # mis-trigger the full-width branch (bug: Fig 2/6 in
+                # Claw-Eval). This mirrors the column logic in the
+                # caption-based fallback at lines 235-243.
+                #
+                # Exception: when the caption is itself wide (spans both
+                # columns), it indicates a full-width figure with two
+                # subfigures side by side (e.g. Fig 3/4 in Claw-Eval).
+                # In that case, do NOT apply the column filter — we need
+                # drawings from both columns to capture both subfigures.
+                cap_w = cap_x1 - cap_x0
+                cap_spans_both = cap_w > text_area_w * 0.55
+                cap_center_x = (cap_x0 + cap_x1) / 2
+                col_is_left = cap_center_x < pw / 2
+
+                # Collect drawing cells in the vertical figure band,
+                # scoped to the SAME COLUMN as the caption.
                 band_cells = []
                 for (gx, gy), count in grid.items():
                     cx = (gx + 0.5) * cell_w
@@ -167,7 +184,11 @@ def extract_figure_regions(doc, dpi=200):
                     if (65 <= cx <= pw - 65 and
                         fig_top <= cy <= fig_bottom and
                         count > 0 and
-                        not cell_in_body(gx, gy)):
+                        not cell_in_body(gx, gy) and
+                        # Only drawings on the caption's column side,
+                        # unless the caption itself spans both columns
+                        # (then we need both subfigures)
+                        (cap_spans_both or (cx < pw / 2) == col_is_left)):
                         band_cells.append((gx, gy, cx, cy))
 
                 if len(band_cells) >= 5:

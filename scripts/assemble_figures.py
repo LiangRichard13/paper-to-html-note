@@ -27,6 +27,16 @@ import sys
 from pathlib import Path
 from html import escape
 
+# Windows GBK 终端兼容:emoji 警告(⚠ ❌ ✅)输出到 stderr 时会触发
+# UnicodeEncodeError 'gbk' codec can't encode '✅'。reconfigure 是 Python 3.7+ 接口,
+# 若解释器更老则放弃配置(emoji 仍可能炸,但脚本不能因此 import 失败)。
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+
 
 # ---------------------------------------------------------------------------
 # Div balance validation

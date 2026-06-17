@@ -35,6 +35,23 @@ Before presenting the choice, gather the data needed for a good recommendation:
 
 3. Read `assets/template.html` — the complete CSS/JS shell (~40KB). Read this LAST since it's the largest reference file.
 
+**Pre-flight (Windows + non-ASCII PDF path)**: If the PDF path contains Chinese characters, spaces, or other non-ASCII bytes, **copy the PDF to an ASCII working directory first**. This avoids three concrete failures observed in the field: (a) `pdftotext` subprocess encoding errors on Windows with GBK code page, (b) Claude Code Bash auto-mode declining non-ASCII paths (one report: 3 consecutive denials before workaround), (c) downstream script path-quoting bugs across `cmd`/`bash`/`subprocess`.
+
+   ```bash
+   python -c "
+   import shutil, os
+   src = r'<original-pdf-path-with-chinese>'
+   dst = r'C:\tmp\paper-skill\paper.pdf'
+   os.makedirs(os.path.dirname(dst), exist_ok=True)
+   shutil.copy(src, dst)
+   print(dst)
+   "
+   ```
+
+   Use the printed ASCII path as `<pdf-path>` in all subsequent steps. The output directory (`<output-dir>`) can still be non-ASCII — only the **PDF input path** needs normalization, because outputs are written by Python with explicit `encoding='utf-8'`.
+
+   Skip this step if your PDF path is already ASCII (most arXiv downloads, English filenames, etc.).
+
 4. Extract PDF text. Prefer `pdftotext -layout` (fast, UTF-8 output). If unavailable, use PyMuPDF fallback below. **Always write to file directly — do NOT use shell `>` redirection** (breaks Unicode on Windows with GBK encoding).
 
    ```bash
@@ -1068,6 +1085,8 @@ Include this condensed reference in every sub-agent prompt. For the full catalog
 
 table — neutral data: <table><tr><th>Col</th></tr><tr><td>...</td></tr></table>
 .grid-2 > .mini-card — compare parallel concepts side by side
+.summary-grid > .sg-item — overview stats grid; each .sg-item has .sg-val (number) + .sg-lbl (label)
+  <div class="summary-grid"><div class="sg-item"><div class="sg-val">3</div><div class="sg-lbl">Steps</div></div></div>
 .pbox — numbered principle: .pn (number) + .pb (body) + .tag (labels)
 .tag — inline badge: <span class="tag bl">Label</span> (6 colors: bl gr or rd pu cy)
 .formula-display — $$\sum x_i$$ (display) / .formula-inline — $E=mc^2$ (inline)
@@ -1152,6 +1171,24 @@ checker = CalloutCheck(); checker.feed(open('<output-dir>/section_{id}.html').re
 assert 'callout-title' not in content, 'FAIL: use standard <strong> in callout, not .callout-title'
 assert checker.errors == [], '\n'.join(checker.errors)
 ```
+
+**IRON RULES for class names (apply to ALL components, not just callouts):**
+
+✅ **Order is fixed**: component name first, modifier second.
+  - `class="callout info"`, `class="callout purple"`, `class="callout warn"`, `class="callout success"`, `class="callout danger"`, `class="callout cyan"`
+  - `class="tag bl"`, `class="tag gr"`, `class="tag or"`, `class="tag rd"`, `class="tag pu"`, `class="tag cy"`
+
+❌ **Never reverse the order**. These are wrong:
+  - `class="info callout"`, `class="purple callout"`, `class="insight callout"`, `class="warn callout"`
+  - `class="bl tag"`, `class="rd tag"`
+
+❌ **Never invent new class names**. These do NOT exist in the design system:
+  - `.stat-card / .stat-num / .stat-label` → use `.sg-item / .sg-val / .sg-lbl` from `.summary-grid` instead
+  - `.callout-title / .callout-body` → use `<strong>Title</strong><p>Body</p>` inside `.callout` instead
+  - `.insight / .takeaway / .highlight` (as standalone classes) → these don't exist; use the matching `.callout TYPE` (e.g. `.callout.purple` for design insight, `.callout.success` for takeaway)
+  - `.card / .box / .panel` (unqualified) → use `.mini-card` inside `.grid-2`/`.grid-3`, or `.pbox`
+
+If a component you need is NOT in this Quick Reference, **read `references/component-catalog.md`** for the full 24-component canonical class list. Do not improvise.
 
 **IRON RULES for callouts:**
 - Every `.callout.*` must have `<strong>` as its first child element
@@ -1457,6 +1494,23 @@ B4 spans **four execution boundaries**: inside the Workflow script → main agen
 │   Read tool — it would load multi-MB base64 into context. │
 │   All structural checks happen via shell commands.         │
 └────────────────────────────────────────────────────────┘
+
+**B4c bracket-placeholder discipline (CRITICAL — common Pipeline B failure mode)**
+
+template.html ships with `[BRACKET]` placeholders. `initMeta()` auto-fills only the top-bar, `<h1>`, and `.meta-row` from the `<meta>` tags. **Everything else you MUST hand-replace in `head.html` and `tail.html` before `cat`.** Observed failure mode: agents fill the 8 `<meta>` tags and the `<h1>` correctly, then forget the body-level `[OPENING_PARAGRAPH]` / `[CORE_THESIS]` inside `SECTION: INTRO_OVERVIEW` and the `[VALUE]` / `[LABEL_CN]` / `[ONE_SENTENCE_SUMMARY_CN]` inside `SECTION: TLDR_*`, leaving the bracket literals visible to the reader in the final HTML.
+
+| File | Placeholders requiring hand-fill | Source |
+|------|----------------------------------|--------|
+| `head.html` | `[LANGUAGE_CODE]` (line 2), `[ORGANIZATION_STRATEGY]` (line 447), the 8 `<meta name="paper-*">` tags in `<head>`, **`[OPENING_PARAGRAPH]` + `[CORE_THESIS]` in `SECTION: INTRO_OVERVIEW`**, **`[VALUE]` × N + `[LABEL_CN]` × N + `[ONE_SENTENCE_SUMMARY_CN]` in `SECTION: TLDR_*`** | `paper_meta.json` for paper-level fields. For INTRO_OVERVIEW: write `[OPENING_PARAGRAPH]` as 2–4 sentences summarizing the paper's motivation/method/result, and `[CORE_THESIS]` as a 1–3 sentence main argument inside a `.callout.purple`. For TLDR: pick 4–6 key metrics from the paper (e.g. dataset size, model count, accuracy delta) plus a one-sentence summary. |
+| `tail.html` | `[CALLOUT_TITLE]` + `[CALLOUT_BODY_CN]` (`SECTION: TAKEAWAYS_*`, ~3–5 callouts), plus any placeholders inside `SECTION: FOOTER` | Synthesize 3–5 actionable takeaways from the section content (each `.callout.success`); FOOTER fields from `paper_meta.json`. |
+
+**Self-check before running `cat`** (observation-only, NOT a hard gate — you decide whether to fix):
+
+```bash
+grep -nE '\[[A-Z_]{3,}\]' <output-dir>/head.html <output-dir>/tail.html
+```
+
+Any line that comes back → return to the wrapper file and fill the placeholder before `cat`. Once `cat`-ed, the literal `[FOO]` ships to the reader. The grep is safe to apply to `head.html` / `tail.html` only — paper text containing `[Algorithm 1]` or `[Theorem 2]` would land in `assembled_body.html`, never in the wrappers, so this check on wrappers alone has no false-positive risk.
 
 ┌── FINAL STRUCTURE VALIDATION (shell, MUST run after cat) ──┐
 │ python -c "                                                  │
