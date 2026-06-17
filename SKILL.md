@@ -20,8 +20,9 @@ This skill supports two execution pipelines. **The mode is not decided automatic
 
 **Path conventions**: Throughout this skill:
 - `<pdf-path>` = the absolute path to the PDF file provided by the user
-- `<output-dir>` = the directory containing the PDF file. All intermediate files are written here.
-- `<skill-dir>` = the directory containing this SKILL.md (i.e., `C:\Users\Administrator\.claude\skills\paper-to-html-note` or equivalent)
+- `<output-dir>` = the directory where the final HTML note will be saved (typically the user's notes directory). All intermediate files are written here.
+- `<skill-dir>` = the directory containing this SKILL.md (resolved automatically at runtime)
+- `<ascii-work-dir>` = an ASCII-only temporary directory for processing non-ASCII PDF paths (e.g., `<output-dir>` if it is ASCII-safe, or a temporary path like `/tmp/paper-skill/` on Unix / `C:\tmp\paper-skill\` on Windows). Created during pre-flight.
 
 Before presenting the choice, gather the data needed for a good recommendation:
 
@@ -33,7 +34,7 @@ Before presenting the choice, gather the data needed for a good recommendation:
 
 2. Read `references/component-catalog.md` — all 24 components. Read this FIRST (smaller, needed to understand component patterns before seeing the template).
 
-3. Read `assets/template.html` — the complete CSS/JS shell (~40KB). Read this LAST since it's the largest reference file.
+3. Read the template files in order: `assets/template.html` (HTML shell, ~19KB), `assets/template.css` (all styles, ~29KB), and `assets/template.js` (all JS including annotation engine, ~26KB). The CSS and JS are extracted separately to serve as the **canonical source** — agents must never hand-write CSS or JS. A self-contained `template.html.bak` is also available for reference.
 
 **Pre-flight (Windows + non-ASCII PDF path)**: If the PDF path contains Chinese characters, spaces, or other non-ASCII bytes, **copy the PDF to an ASCII working directory first**. This avoids three concrete failures observed in the field: (a) `pdftotext` subprocess encoding errors on Windows with GBK code page, (b) Claude Code Bash auto-mode declining non-ASCII paths (one report: 3 consecutive denials before workaround), (c) downstream script path-quoting bugs across `cmd`/`bash`/`subprocess`.
 
@@ -41,7 +42,7 @@ Before presenting the choice, gather the data needed for a good recommendation:
    python -c "
    import shutil, os
    src = r'<original-pdf-path-with-chinese>'
-   dst = r'C:\tmp\paper-skill\paper.pdf'
+   dst = r'<ascii-work-dir>/paper.pdf'
    os.makedirs(os.path.dirname(dst), exist_ok=True)
    shutil.copy(src, dst)
    print(dst)
@@ -265,183 +266,33 @@ Both pipelines share the same HTML template, component library, figure extractor
 
 ## Content Depth Rules (Both Pipelines)
 
-A reading note is not a translation or summary — it is a **curated analysis**. Every section must deliver more value than re-reading the original paper. These rules apply regardless of which pipeline is used.
+A reading note is not a translation or summary — it is a **curated analysis**. All sections must follow the four principles below. Full details in [Content Depth Rules](references/content-depth-rules.md).
 
-### Principle 1: Strategy-Aware Organization, Invert Within Sections
+| Principle | Rule |
+|-----------|------|
+| **倒金字塔结构** | 每节先给结论/框架，再解释。 |
+| **强制洞察类型** | 500+ 字章节必须包含 ≥2 种 callout（purple/warn/success/danger）。 |
+| **双层深度** | ~60% 总结层 + ~40% 洞察层。零洞察 callout 的章节为失败。 |
+| **按意图选组件** | table = 展示数据；callout.info = 论文主张；callout.purple = 设计动机；callout.warn = 权衡；callout.success = 可操作建议；callout.danger = 风险。 |
 
-**Section order is determined by the chosen organization strategy** from Phase 0b. The default strategy (paper-structure-aligned) matches the paper's own structure — Introduction → Background → Method → Experiments → Discussion → Conclusion. Readers who know the paper should feel oriented, not lost. Other strategies (cognition-first, question-driven, persona-driven) reorder content around the reader's cognitive path. See the [Organization Strategy Reference](#organization-strategy-reference) for per-strategy ordering rules.
-
-**Within each section**, regardless of strategy, use inverted pyramid: state the conclusion first, then explain why.
-
-```
-❌ Paper-order: "The authors propose three memory types: text, vector, and graph.
-    Text memory is... Vector memory is... Graph memory is..."
-   → Reader must read everything to understand what matters.
-
-✅ Inverted: "Memory boils down to three design choices: what to store (text/vector/graph),
-    how to update (similarity/reasoning), and how to retrieve (content/structure/policy).
-    Text is simplest but loses relations. Vector scales well but can't answer 'what caused what'.
-    Graph captures everything but costs the most to build."
-   → Reader grasps the framework in the first sentence.
-```
-
-### Principle 2: Mandatory Insight Types
-
-Every section of 500+ words MUST include at least **2 of the following 4** insight types. Tag them explicitly so the reader can identify them:
-
-| Type | Tag | What It Does | Example |
-|------|-----|-------------|---------|
-| **Design Motivation** | `callout.purple` | Why did the authors choose X over Y? What implicit tension drove this decision? | "MemGPT borrows OS paging not because it's clever, but because context windows have the same fundamental constraint as RAM: they're fast but tiny." |
-| **Cross-Section Link** | `callout.warn` | How does this design choice ripple through to later results? | "The retrieval strategy chosen here (content-based vs structure-aware) directly determines whether the agent passes or fails MemoryArena's cross-session tests in Section 6." |
-| **Practical Takeaway** | `callout.success` | If I were building this, what's the one thing I must get right? | "Start with Pattern B (context + retrieval store). Don't jump to learned memory policies until you have at least 3 months of production logs proving heuristic control is the bottleneck." |
-| **Critical Observation** | `callout.danger` | What limitation does the paper NOT discuss but a practitioner would discover? | "The paper doesn't mention this, but a single incorrect reflection in a long-running agent can poison thousands of downstream decisions. The failure scales linearly with agent lifetime." |
-
-### Principle 3: Two-Layer Depth Structure
-
-Every section operates at two levels. Use different HTML components to distinguish them:
-
-| Layer | Purpose | Primary Components |
-|-------|---------|-------------------|
-| **Summary Layer** (What the paper says) | Accurately convey the paper's claims, methods, and results | `table`, `.callout.info`, plain `<p>`, `<ul>` |
-| **Insight Layer** (What it means) | Synthesize, critique, connect, and extract actionable lessons | `.callout.purple`, `.callout.warn`, `.callout.success`, `.callout.danger` |
-
-**Rule of thumb**: A section should be roughly 60% summary layer and 40% insight layer. A section with zero insight callouts is a failed section — rewrite it.
-
-### Principle 4: Component Choice by Intent
-
-Choose components based on the **cognitive intent** of the content, not just what fits the data shape:
-
-| Intent | Component | Why |
-|--------|-----------|-----|
-| "Here's what the paper found" | `table` | Tables are neutral; they present data without interpretation |
-| "Here's the paper's main argument" | `.callout.info` | Blue = factual but highlighted |
-| "This is why it matters" | `.callout.purple` | Purple = architectural/design insight |
-| "Watch out — there's a tension here" | `.callout.warn` | Amber = caution, trade-off |
-| "This is actionable" | `.callout.success` | Green = positive, practical takeaway |
-| "This is a real risk" | `.callout.danger` | Red = danger, critical limitation |
-| "Here are the parallel concepts" | `.grid-2 > .mini-card` | Cards = compare/contrast at a glance |
-
-**Callout structure**: Every `.callout.*` must begin with `<strong>emoji Title</strong>` as its first child, followed by one or more `<p>`. No self-invented classes (`.callout-title`, `.callout-body`). Emoji in the `<strong>` is the only variation allowed. Pipeline A's single agent is naturally consistent, but verify during A4.8 quality check.
+**Callout 结构要求**（不可违反）：每个 `.callout.*` 的第一个子元素必须是 `<strong>emoji Title</strong>`，其后跟 `<p>`。禁止自创类名（`.callout-title`, `.callout-body`）。Callout 的排序顺序固定：component 名在前、修饰符在后（如 `class="callout info"` 而非 `class="info callout"`）。
 
 ---
 
 ## Organization Strategy Reference
 
-The four strategies below control how sections are ordered and grouped. The agent applies the chosen strategy during Phase A3 (content-to-component mapping), A4 (HTML generation), B2 (section assignment), and B3 (sub-agent writing). The default is `paper-structure-aligned`.
+四种组织策略的完整定义、章节排序模板和跨策略兼容性详见 [Organization Strategies](references/organization-strategies.md)。
 
-### Strategy Selection
+快速参考：
 
-The user directly chooses from the 4 strategies in Phase 0b Q3. The Agent provides a recommendation based on the **detected paper type** (from Phase 0a step 6.5) and content characteristics, but the user makes the final choice.
+| Strategy | Best For | 说明 | 章节顺序 |
+|----------|----------|------|---------|
+| **paper-structure-aligned** | 复习/查找 | 按论文原章节顺序 | 与论文一致 |
+| **cognition-first** | 初学系统/综述 | 问题→核心→架构→设计→工作→结果→局限 | 重新排序为认知路径 |
+| **question-driven** | 算法/实证 | 每节一个核心问题+答案 | 逻辑依赖顺序 |
+| **persona-driven** | 实践者评估 | 第一人称叙事："为什么读"→"哪里谨慎"→"何时用" | 叙事弧线 |
 
-### Strategy 1: paper-structure-aligned (default)
-
-**Goal**: Match the paper's structure for easy cross-reference.
-**Best for**: review/locate intent, any paper type.
-**Section order**: Follow the paper's own heading hierarchy. Identify which template section blocks correspond to which paper sections and place them in paper order.
-**Sidebar grouping**: Groups follow paper structure (grouped by paper section number).
-
-### Strategy 2: cognition-first
-
-**Goal**: Build a cognitive framework from the ground up. Start with "what problem does this solve and why should I care?" before diving into details.
-**Best for**: learn intent, system/survey/position papers.
-**Section order**: Problem-first, solution-second, details-last.
-
-```
-1. Problem & Motivation (what gap exists, why it matters)
-2. Core Idea / One-Liner (the paper's key insight in 1 paragraph)
-3. Approach Overview (high-level architecture or taxonomy, with Fig 1)
-4. Key Design Decisions (design principles, tradeoffs made)
-5. How It Works (mechanisms, algorithms, implementation details)
-6. Results & Evidence (does it actually work?)
-7. Limitations & Open Questions (what's still unsolved)
-8. Relationship to Prior Work (how it fits the landscape)
-9. Methodology Notes (how the research was conducted)
-10. Takeaways (what a practitioner should remember)
-```
-
-**Section merging**: Combine Introduction + Background into "Problem & Motivation". Split Method into "Core Idea" + "Key Design Decisions" + "How It Works". Move Related Work later.
-**Sidebar grouping**: Groups follow the reader's learning journey: "Understanding the Problem" → "The Solution" → "Evidence" → "Broader Context".
-
-### Strategy 3: question-driven
-
-**Goal**: Organize content around 4-8 core questions the paper answers. Each section IS a question.
-**Best for**: learn/evaluate intent, algorithm/empirical papers.
-**Section order**: Questions in logical dependency order (foundational questions first). Agent generates questions from paper content.
-
-**Question templates by paper type** (derive from paper content, not copy verbatim):
-
-| Paper Type | Template Questions |
-|------------|-------------------|
-| system | What problem does this system solve? What is the key architectural insight? How are the components organized? What design tradeoffs were made? Does it perform well? What are its limitations? |
-| algorithm | What problem does this algorithm solve? What is the core idea/insight? How does it work step by step? How does it compare to alternatives? Under what conditions does it fail? |
-| survey | What is the landscape? How are approaches categorized? What are the key dimensions of comparison? What patterns emerge across categories? What open problems remain? |
-| empirical | What was studied and why? How was the study designed? What were the key findings? How robust are the results? What should practitioners do differently? |
-| position | What is the central argument? What evidence supports it? What assumptions underlie it? What would change if adopted? What are the counterarguments? |
-
-**Section heading**: The h2 heading text IS the question itself (e.g., "系统如何在动态环境中保持记忆一致性？").
-**Sidebar grouping**: One group = one question. The sidebar becomes an FAQ-like index.
-
-**Bare-bones question-section template** (for Pipeline A; Pipeline B sub-agents use the same structure):
-
-```html
-<div class="section" id="{question_id}">
-<h2><span class="num">{N}</span> {question_text}<a href="#{question_id}" class="anchor">#</a></h2>
-<p>{开篇回答 — 1-2 sentences that directly answer the question. This is the most important sentence of the section.}</p>
-<!-- Body: mix of callouts + optional figures/formulas. Use the same component catalog as other strategies. -->
-</div>
-```
-
-### Strategy 4: persona-driven
-
-**Goal**: Narrate the paper as if a practitioner is explaining it to a colleague.
-**Best for**: evaluate intent, system/position papers.
-**Section order**: Narrative arc from practitioner's perspective.
-
-```
-1. "Why I picked up this paper" (context + motivation)
-2. "The one idea I can't stop thinking about" (core contribution)
-3. "How it actually works — the 5-minute version" (architecture/mechanism walkthrough)
-4. "Numbers that matter" (key results, with skepticism about generalizability)
-5. "Where I'd be cautious" (limitations, unstated assumptions)
-6. "When I'd use this" (practical applicability guide)
-7. "What I'd build next" (future directions relevant to practitioners)
-8. "Papers I'd read alongside this" (curated related work)
-```
-
-**Tone**: Use conversational section titles. Write section intros in first/second-person ("you", "I read this so you don't have to"). Technical claims remain precise — informality is in framing, not in data or claims.
-**Sidebar grouping**: Conversational groups like "Why It Matters" / "How It Works" / "Should You Use It?".
-
-### Strategy Implementation: Section Ordering
-
-For implementation, each strategy is an ordered list of section types with grouping metadata. The agent:
-
-1. Selects which template section blocks to keep (from Phase A3 content mapping)
-2. Orders those blocks per the strategy (not per the template's default order)
-3. Groups sidebar entries per the strategy
-
-**Key rule**: Content mapping determines WHICH sections exist. Strategy determines their ORDER. Never force content into sections the paper doesn't have — only change sequence and grouping.
-
-### Pipeline B Compatibility
-
-| Strategy | Pipeline B Support | Extra Mechanism | Cost |
-|----------|:---:|---|------|
-| paper-structure | ✅ Native | None | Zero |
-| question-driven | ✅ Mild adaptation | B2 provides `previously_defined_concepts` list to each sub-agent to prevent re-definition | Low (~200 chars/sub-agent) |
-| cognition-first | ⚠️ Needs coherence validation | B3.5 extended with Coherence Agent that checks cross-section transitions, concept consistency, and duplicates using pairwise checking | Medium (+1 agent call) |
-| persona-driven | ❌ Not recommended | Warn user to switch to Pipeline A; unified narrative voice cannot be maintained across parallel sub-agents | Zero (warning only) |
-
-### Figure & Formula Integration Across Strategies
-
-**Formulas**: Formulas are embedded within text paragraphs. When B2 reorganizes text for any strategy, formulas travel with their surrounding text. **Prerequisite**: Formula LaTeX transcription MUST be completed during Phase 0a step 6.6 (before any pipeline selection), so that formulas can be located by their PDF context before sections are reorganized. See Phase 0a step 6.6.
-
-**Figures**: Figures are independent objects with a single physical page location but variable logical attribution. B2 must explicitly reassign figures when strategies reorganize section boundaries:
-
-| Strategy | Figure Handling |
-|----------|----------------|
-| paper-structure | Figures inherit paper section assignment. No change needed. |
-| cognition-first | When B2 merges paper sections into thematic units, the `figures` field = **union** of all source sections' figure IDs. |
-| question-driven | B2 may assign the **same figure to multiple questions**. `assemble_figures.py` handles this automatically: first occurrence gets full `<figure>`, subsequent occurrences become `.fig-ref` cross-references (existing Component 23 mechanism). |
-| persona-driven | Same as cognition-first for assignment. Additional: `strategy_guidance` tells sub-agents to write figure captions in conversational tone. |
+**关键规则**：Content mapping 决定**哪些**章节存在；Strategy 决定它们的**顺序**。不要强制内容放入不存在的章节——只改变序列和分组。
 
 ---
 
@@ -670,7 +521,7 @@ After identifying which sections to include (from the mapping above), order them
 
 Before generating HTML, read these reference files:
 
-1. Read `assets/template.html` — this is your starting point. The complete CSS/JS is already inlined. Your job is to fill in the `<!-- SECTION: xxx -->` placeholders with paper-specific content.
+1. Read `assets/template.html` (HTML shell), `assets/template.css` (all styles), and `assets/template.js` (all scripts) — these three files together form the complete template.
 2. Read `references/component-catalog.md` for detailed component templates if you need them for specific patterns.
 3. Reference `references/design-system.md` if you need to understand a CSS variable or add custom styles.
 
@@ -691,11 +542,27 @@ Two templates are available in `assets/`, selected based on the annotation langu
 
 ### A4.1 Start from the template
 
-Copy the chosen template to your output path:
-```
+Copy the chosen template and inline CSS/JS assets into it. The template shell (`template.html`) contains `<!-- STYLESHEET -->` and `<!-- SCRIPT -->` placeholders that must be replaced with the canonical CSS/JS from the extracted files.
+
+```bash
+# Step 1: Copy template shell to output
 cp "<skill-dir>/assets/template.html" "<output-dir>/<paper-short-name>_reading_notes.html"
 # OR for English:
 cp "<skill-dir>/assets/template_en.html" "<output-dir>/<paper-short-name>_reading_notes.html"
+
+# Step 2: Inline CSS and JS from the canonical source files
+# (Never hand-write CSS or JS — always read from the extracted assets)
+python -c "
+import os
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+out = '<output-dir>/<paper-short-name>_reading_notes.html'
+html = open(out, encoding='utf-8').read()
+css = open('<skill-dir>/assets/template.css', encoding='utf-8').read()
+js  = open('<skill-dir>/assets/template.js', encoding='utf-8').read()
+html = html.replace('<!-- STYLESHEET -->', '<style>\n' + css + '\n</style>')
+html = html.replace('<!-- SCRIPT -->', '<script>\n' + js + '\n</script>')
+open(out, 'w', encoding='utf-8').write(html)
+"
 ```
 
 ### A4.2 Fill metadata `<meta>` tags
@@ -816,38 +683,18 @@ All explanatory text must be in the **user's chosen annotation language** (from 
 
 ### A4.8 Quality Check
 
-Before declaring the output complete, verify:
+按 [Quality Checks](references/quality-checks.md) 逐项验证全部 29 项检查。必检项包括：
 
-1. **CSS completeness**: All 6 semantic color families have both light and dark variables
-2. **JS completeness**: Progress bar, back-to-top, IntersectionObserver sidebar highlight, theme toggle + localStorage persistence, print handler, entrance animation, lightbox (click-to-zoom + keyboard nav), mobile sidebar toggle, code block copy button, table horizontal scroll detection — all 10 features present
-3. **Sidebar ↔ section alignment (HARD GATE)**: Every sidebar `<a href="#xxx">` must point to an existing `id="xxx"`, and every section `<div class="section" id="xxx">` (except `<div id="math">`) must have a corresponding sidebar link. Visible link text must overlap the target `<h2>` text by ≥ 4 characters. No template placeholder text may remain. If any check fails, **stop and fix the sidebar before declaring the output complete** — do not proceed to delivery. All `<details>` blocks must be `open` by default.
-4. **Print styles**: `@media print` hides sidebar, top-bar, progress-bar, btt; reveals all entrance-animated sections
-5. **Content accuracy**: Compare key claims and numbers against the extracted paper text
-6. **No orphan components**: Every rendered component corresponds to actual paper content
-7. **Language consistency**: All user-facing text is in the chosen annotation language (Chinese or English). No mixed-language annotations except preserved terms.
-8. **No leftover placeholders**: No `[PLACEHOLDER_TEXT]` remains in the output. All 8 `<meta name="paper-*">` tags in `<head>` have non-empty `content` values.
-8b. **No orphaned bold text**: `<strong>` or `<b>` text should flow inline within paragraphs, NOT appear alone on its own line separated by `<br>` or paragraph breaks. Bold text wrapped in isolation looks unintended.
-9. **Base64 integrity**: Open the HTML in a browser; all figures render without broken-image icons. Each `<img src="data:image/png;base64,...">` is well-formed
-10. **Image sizing**: No inline image exceeds 100% container width or 500px height; `max-width` and `max-height` CSS constraints are in effect
-11. **Lightbox functional**: Clicking any `figure.paper-fig img` opens the lightbox overlay displaying the full-resolution image
-12. **Lightbox dismiss**: The lightbox closes on × button, backdrop click, and Escape key
-13. **Gallery navigation**: With 2+ figures, prev/next arrows and ArrowLeft/ArrowRight keyboard keys navigate between them
-14. **Dark mode images**: Toggle dark mode; images have visible borders (`border-color:#334155`) and are not washed out against the dark background
-15. **Print images**: Print preview shows images at reasonable size (`max-height:300px`); lightbox overlay is hidden
-16. **Lazy loading + caption**: Every `figure.paper-fig img` has both `loading="lazy"` and `data-caption` attributes; `data-caption` matches its `figcaption` text
-17. **Figure cropping quality**: Each embedded figure is an individual cropped image (not a full-page render). Verify by checking that figures don't contain surrounding body text, page headers, or footnotes — the image should show only the diagram/figure itself
-18. **Formula rendering**: All `$...$` and `$$...$$` formulas render correctly when KaTeX loads; check for `\` command typos and unmatched braces
-19. **Formula normalization**: Any pdftotext-mangled symbols (e.g., ∑ → `Sigma`) have been corrected back to proper LaTeX
-20. **Formula explanation**: Every display formula (`$$...$$`) is followed by an explanation in the user's chosen annotation language
-21. **KaTeX fallback**: When the CDN is unavailable, `.formula-inline` and `.formula-display` fallback styles show readable monospace content
-22. **Mobile sidebar toggle**: On viewports <960px, sidebar is hidden and ☰ button appears at bottom-right. Tapping opens sidebar as overlay with semi-transparent backdrop. Tapping backdrop closes it.
-23. **Code copy button**: Hovering over any `<pre>` block reveals a "复制" button at top-right. Clicking copies the code to clipboard and shows "已复制" for 1.5s. Falls back gracefully if clipboard API is unavailable.
-24. **Table scroll indicator**: When a table overflows its container, a gradient fade appears on the right edge to indicate scrollability. Disappears when fully scrolled.
-25. **Section flash on :target**: When navigating to a section via anchor link (sidebar or h2 anchor), the section briefly flashes with a blue highlight (`section-flash` animation) to orient the reader.
-26. **No intermediate file references**: The final HTML is self-contained (CSS/JS inline, images as base64 data URIs). Grep for any local file paths that might have leaked — there should be no references to `paper_text.txt`, `figures_b64.json`, `section_*.html`, or `assembled_body.html`.
-27. **Strategy marker present**: The `<body>` tag has a `data-strategy` attribute matching the strategy chosen in Phase 0b (e.g., `data-strategy="cognition-first"`). Verify with: `grep -o 'data-strategy="[^"]*"' <output>.html`.
-28. **Strategy section ordering**: The h2 titles appear in the sequence specified by the chosen strategy's ordering rules (from Organization Strategy Reference). When the strategy is NOT paper-structure-aligned, the section order should NOT match the template's default order.
-29. **Strategy-specific heading style**: For question-driven, every h2 heading contains an actual question (ends with `？` or `?`). For persona-driven, section titles use conversational/practitioner-oriented language rather than academic section headings.
+| # | 检查项 | 严重度 |
+|---|--------|:----:|
+| 3 | **侧边栏 ↔ 章节对齐（HARD GATE）**：每个 `href` 都必须有对应 `id`，反之亦然；可见文本与 h2 匹配 ≥4 字符；无模板残留文本。所有 `<details>` 必须 `open`。 | 🔴 硬闸 |
+| 26 | **无中间文件泄露**：grep 确认无 `paper_text.txt`、`figures_b64.json`、`template.css`、`template.js`、`<!-- STYLESHEET -->` 等路径残留。 | 🔴 |
+| 9-17 | **图片渲染**：Base64 无断链、sizing 合规、灯箱功能、暗色模式、打印、懒加载。 | 🟡 |
+| 18-21 | **公式渲染**：KaTeX 正确加载、手写 LaTeX 无误、每个 display formula 后带解释。 | 🟡 |
+| 1-2, 22-25 | **CSS/JS 完整**：10 个 JS 功能、响应式、复制按钮、滚动表格指示。 | 🟢 |
+| 27-29 | **策略标记**：`data-strategy` 存在、章节顺序符合策略、标题风格符合策略。 | 🟢 |
+
+> 上述为缩略清单。完整 29 项见 [Quality Checks](references/quality-checks.md)，每项必须逐条过检。
 
 ### Phase A5: Post-Verification Cleanup
 
@@ -1006,207 +853,13 @@ Launch **N agents** via `pipeline(sections, writeSection)`. Each agent receives 
 
 ### Sub-Agent Prompt Template
 
-Each sub-agent receives this prompt structure:
+子代理的完整提示模板（含策略占位符表、Quick Component Reference、File Output Instructions、Clean Section Contract、Callout Contract、IRON RULES）详见 [Subagent Prompt Reference](references/subagent-prompt-reference.md)。
 
-```
-You are writing ONE section of an academic paper reading note in {annotation_language}.
-
-## Organization Strategy
-This note uses the **{strategy}** organization strategy.
-{strategy_guidance}
-
-## Your Section
-- Section number: {num}
-- Section ID: {id}
-- Section title: {title}
-- Position in narrative: {position_context}
-
-## Paper Text for This Section
-{text}
-
-## Figures Available (use placeholders, NOT base64)
-DO NOT embed base64 image data. Use placeholders instead:
-  <!-- FIG:1 -->
-  <!-- FIG:3 -->
-Available figures for this section: {figure_id_list}
-Caption reference: {figure_captions}
-
-## Formulas to Embed
-{formulas_with_latex}
-
-## HTML Components You Should Use
-{component_hints}
-
-## Component Reference (inline catalog)
-{Insert the inline component catalog below. For the complete catalog (24 components), sub-agents may read references/component-catalog.md if they need a component not listed here.}
-
-## Content Rules
-0. **Strategy awareness**: {strategy_specific_rule}
-1. Write in {annotation_language} (user's choice from Phase 0b). Preserve technical terms, author names, numbers.
-2. Insert figures ONLY as `<!-- FIG:N -->` on its own line. NEVER use `<figure>`, `<img>`, or base64.
-   Each figure should appear AT MOST ONCE per section.
-3. Embed formulas inline (`$...$`) or as display blocks (`$$...$$`). Follow display formulas with an explanation in the user's chosen annotation language.
-4. `<strong>` is INLINE — always inside `<p>` or `<li>`. Never standalone.
-
-## Depth Requirements (MANDATORY)
-5. **Inverted pyramid**: Open each subsection with the conclusion or framework, then explain.
-6. **Mandatory insights**: Include at least 2 of the following callout types:
-    - `.callout.purple` — design motivation (WHY this design choice)
-    - `.callout.warn` — cross-section connection (how this ripples through the paper)
-    - `.callout.success` — practical takeaway (what a builder must get right)
-    - `.callout.danger` — critical observation (a limitation the paper doesn't discuss)
-7. **Two-layer structure**: ~60% summary (tables, `.callout.info`, plain text) + ~40% insight callouts.
-8. **Component intent**: Choose the component that matches what you're trying to SAY, not just what fits the data shape.
-```
-
-**Strategy-specific template values for sub-agent prompts**:
-
-| Placeholder | paper-structure | cognition-first | question-driven | persona-driven |
-|---|---|---|---|---|
-| `{strategy_guidance}` | "Follow the paper's own subsection structure within your section. Readers will cross-reference the original." | "Open with the conceptual framework or problem statement before showing mechanics. Build understanding layer by layer." | "Your section heading IS the question. The entire section is the answer. Lead with the answer, then explain." | "Write as if explaining to a fellow practitioner. Use 'you' framing for practical takeaways. Keep technical claims precise." |
-| `{position_context}` | "Section {num} of {total}" | "Section {num} of {total}. Preceded by: {prev_title}. Followed by: {next_title}." | "Question {num} of {total}. Preceding question: {prev_question}. Following question: {next_question}." | "Section {num} of {total} in the narrative arc. Preceded by: {prev_title}. Followed by: {next_title}." |
-| `{strategy_specific_rule}` | "Match the paper's own section structure faithfully. Do NOT add extra wrapper <div> elements — exactly one outer <div class='section'> wrapper." | "Your chapter should naturally flow from the preceding chapter's framework and set up claims for the next chapter to verify. Do NOT add extra wrapper <div> elements — exactly one outer <div class='section'> wrapper." | "Answer the question directly in the first sentence. Reference previously defined concepts ({previously_defined_concepts}) without re-defining them. Do NOT add extra wrapper <div> elements — exactly one outer <div class='section'> wrapper." | "Write section intro in conversational first/second-person. Technical claims remain precise. Figure captions use natural language (not academic 'Fig. X:' format). Do NOT add extra wrapper <div> elements — exactly one outer <div class='section'> wrapper." |
-
-### Component Reference for Sub-Agents
-
-Include this condensed reference in every sub-agent prompt. For the full catalog (24 components with HTML snippets), sub-agents may read `references/component-catalog.md` if they need a component not listed here.
-
-```
-## Quick Component Reference
-
-.callout — 6 intent-mapped types (match type to cognitive intent):
-  .info     = "here's what the paper claims" (summary layer)
-  .purple   = "here's WHY this design choice" (design motivation)
-  .warn     = "this choice creates tension with X" (trade-off, cross-section link)
-  .success  = "here's what you should do" (actionable takeaway)
-  .danger   = "here's a risk the paper doesn't discuss" (critical observation)
-  .cyan     = methodology note / clarification
-  <div class="callout info"><strong>Title</strong><p>Body</p></div>
-
-table — neutral data: <table><tr><th>Col</th></tr><tr><td>...</td></tr></table>
-.grid-2 > .mini-card — compare parallel concepts side by side
-.summary-grid > .sg-item — overview stats grid; each .sg-item has .sg-val (number) + .sg-lbl (label)
-  <div class="summary-grid"><div class="sg-item"><div class="sg-val">3</div><div class="sg-lbl">Steps</div></div></div>
-.pbox — numbered principle: .pn (number) + .pb (body) + .tag (labels)
-.tag — inline badge: <span class="tag bl">Label</span> (6 colors: bl gr or rd pu cy)
-.formula-display — $$\sum x_i$$ (display) / .formula-inline — $E=mc^2$ (inline)
-figure placeholder — <!-- FIG:N --> on its own line (NEVER <figure>/<img>/base64)
-
-For any component not listed here, read references/component-catalog.md.
-```
-
-### File Output Instructions (CRITICAL — placed at end intentionally)
-
-⚠️ **DO NOT return HTML in your response.** Your response goes through a structured JSON schema
-that ONLY accepts `{section_id, num, title, file_path}` — it will reject raw HTML.
-
-Append this verbatim to every sub-agent prompt:
-
-```
----BEGIN FILE OUTPUT INSTRUCTIONS---
-CRITICAL: You MUST save your section HTML to a file, then return metadata.
-Do NOT return HTML in your response body.
-
-1. Write your section HTML using the Write tool to: <output-dir>/section_{id}.html
-
-   The file must contain exactly this structure:
-   <div class="section" id="{id}">
-   <h2><span class="num">{num}</span> {title}</h2>
-   ... (all section content: paragraphs, callouts, tables, <!-- FIG:N --> placeholders) ...
-   </div>
-
-2. AFTER writing the file, set your structured output to:
-   {section_id: "{id}", num: {num}, title: "{title}", file_path: "<output-dir>/section_{id}.html"}
-
-IRON RULES:
-- First line of the file MUST be: <div class="section" id="{id}">
-- Last line of the file MUST be: </div>
-- Figures ONLY as <!-- FIG:N --> on its own line. NEVER use <figure>, <img>, or base64.
-- <strong> is INLINE — always inside <p> or <li>. Never standalone. No <br> around it.
-- Do NOT include <html>, <head>, <body> tags in the file.
----END FILE OUTPUT INSTRUCTIONS---
-```
-
-#### CLEAN SECTION CONTRACT (Execute Immediately After Writing):
-
-Each sub-agent MUST execute the following validation after writing `section_{id}.html` and before returning JSON:
-
-```python
-import re
-content = open('<output-dir>/section_{id}.html').read()
-strip = content.strip()
-assert strip.startswith('<div class="section"'), f'FAIL: missing section open tag'
-assert strip.endswith('</div>'), f'FAIL: missing section close tag'
-assert content.count('<div class="section"') == 1, f'FAIL: nested section divs detected'
-# Count div balance (excluding the outer section div itself)
-inner = re.sub(r'^<div class="section"[^>]*>\s*', '', content)
-inner = re.sub(r'\s*</div>\s*$', '', inner)
-opens = inner.count('<div ')
-closes = inner.count('</div>')
-assert opens == closes, f'FAIL: div balance (open={opens}, close={closes})'
-```
-
-If any assertion fails, **the entire section file MUST be rewritten** — do NOT attempt to Edit it manually.
-
-#### CALLOUT CONTRACT (Execute with Clean Section Contract):
-
-Also validate DOM structure patterns before returning JSON:
-
-```python
-from html.parser import HTMLParser
-class CalloutCheck(HTMLParser):
-    def __init__(self): super().__init__(); self.errors = []
-    def handle_starttag(self, tag, attrs):
-        cls = dict(attrs).get('class', '')
-        if cls and cls.startswith('callout'):
-            # Must have <strong> as first child, not a custom class like callout-title
-            self._cur_callout = cls
-    def handle_endtag(self, tag):
-        if hasattr(self, '_cur_callout'): del self._cur_callout
-    def handle_data(self, data):
-        if hasattr(self, '_cur_callout') and data.strip():
-            self.errors.append(f'Callout .{self._cur_callout}: first child must be <strong>, got text')
-checker = CalloutCheck(); checker.feed(open('<output-dir>/section_{id}.html').read())
-# Also reject self-invented patterns
-assert 'callout-title' not in content, 'FAIL: use standard <strong> in callout, not .callout-title'
-assert checker.errors == [], '\n'.join(checker.errors)
-```
-
-**IRON RULES for class names (apply to ALL components, not just callouts):**
-
-✅ **Order is fixed**: component name first, modifier second.
-  - `class="callout info"`, `class="callout purple"`, `class="callout warn"`, `class="callout success"`, `class="callout danger"`, `class="callout cyan"`
-  - `class="tag bl"`, `class="tag gr"`, `class="tag or"`, `class="tag rd"`, `class="tag pu"`, `class="tag cy"`
-
-❌ **Never reverse the order**. These are wrong:
-  - `class="info callout"`, `class="purple callout"`, `class="insight callout"`, `class="warn callout"`
-  - `class="bl tag"`, `class="rd tag"`
-
-❌ **Never invent new class names**. These do NOT exist in the design system:
-  - `.stat-card / .stat-num / .stat-label` → use `.sg-item / .sg-val / .sg-lbl` from `.summary-grid` instead
-  - `.callout-title / .callout-body` → use `<strong>Title</strong><p>Body</p>` inside `.callout` instead
-  - `.insight / .takeaway / .highlight` (as standalone classes) → these don't exist; use the matching `.callout TYPE` (e.g. `.callout.purple` for design insight, `.callout.success` for takeaway)
-  - `.card / .box / .panel` (unqualified) → use `.mini-card` inside `.grid-2`/`.grid-3`, or `.pbox`
-
-If a component you need is NOT in this Quick Reference, **read `references/component-catalog.md`** for the full 24-component canonical class list. Do not improvise.
-
-**IRON RULES for callouts:**
-- Every `.callout.*` must have `<strong>` as its first child element
-- No self-invented class names (no `.callout-title`, `.callout-body`, etc.)
-- Emoji prefix in `<strong>` is fine: `<strong>📌 Key Insight</strong>`
-- `<strong>` is always INLINE — inside `.callout`, NOT wrapped in `<p>`
-
-If any assertion fails, rewrite the section — same as Clean Section Contract.
-
-**Exception**: The B3.5b Coherence Agent (cognition-first strategy) may perform lightweight Edits for transition injection and terminology unification. These edits MUST be followed by immediate div balance validation (see B3.5b DIV SAFETY RULE). For all other phases, rewriting on failure remains mandatory.
-
-**Severity Note**: Clean Section Contract violations are the most severe pipeline errors. A single unbalanced div will corrupt the entire content area of the final HTML, and the cost of repair far exceeds rewriting the section. Therefore, rewriting is mandatory on failure — with the sole exception of B3.5b Coherence Agent edits that pass post-edit div validation.
-
-**Why this works**: 8 sections × ~25KB HTML = ~200KB would flood the main context.
-By writing to files, each sub-agent returns only ~50 bytes of metadata. The main
-context stays lean. The structured JSON schema in the Workflow `agent()` call was
-already changed to accept `{section_id, num, title, file_path}`, so raw HTML will be
-rejected by the schema validator.
+**B3 执行要点**：
+1. 用模板填充章节信息后作为 agent prompt
+2. agent 写完 section HTML 后必须执行 Clean Section Contract + Callout Contract
+3. 平衡校验失败时必须重写整个文件（禁止 Edit 修复）
+4. 输出通过结构化 JSON 返回文件路径，不返回 HTML 原文
 
 ### Parallel Execution
 
@@ -1450,9 +1103,18 @@ B4 spans **four execution boundaries**: inside the Workflow script → main agen
 │ B4c. Read sections_meta.json + paper_meta.json.           │
 │      sections_meta.json → build sidebar links.             │
 │      paper_meta.json → fill <meta> tags.                   │
-│      Then choose the correct template:                     │
-│      Read the chosen template's <head> and <script>     │
-│      sections (instructions embedded in HTML comments). │
+│                                                         │
+│      ⚠️ TEMPLATE PRIORITY RULE (MANDATORY):               │
+│      You MUST NOT hand-write any CSS or JavaScript.       │
+│      The canonical CSS is in assets/template.css.         │
+│      The canonical JS  is in assets/template.js.          │
+│      Read these files and embed their content verbatim    │
+│      into head.html/tail.html via <!-- STYLESHEET -->     │
+│      and <!-- SCRIPT --> placeholders.                    │
+│                                                         │
+│      Step 1: Choose the correct template shell:           │
+│        - zh:  assets/template.html                        │
+│        - en:  assets/template_en.html                     │
 │                                                         │
 │   assembled_body.html (which now contains multi-MB        │
 │   of base64 image data after assemble_figures.py).        │
@@ -1479,10 +1141,17 @@ B4 spans **four execution boundaries**: inside the Workflow script → main agen
 │                 **Fill all <meta name="paper-*"> tags**    │
 │                 from paper_meta.json values. See A4.2      │
 │                 for the HTML syntax.                       │
+│                 **Embed CSS via <!-- STYLESHEET -->**       │
+│                 Read assets/template.css, wrap in           │
+│                 <style>...</style>, insert at placeholder. │
 │                 + intro section (title, meta, thesis)     │
 │                 + TL;DR section (summary grid)            │
 │      tail.html: takeaways section (callouts + table)      │
-│                 + footer + <script> + </body></html>      │
+│                 + footer                                   │
+│                 **Embed JS via <!-- SCRIPT -->**            │
+│                 Read assets/template.js, wrap in            │
+│                 <script>...</script>, insert at placeholder.│
+│                 + </body></html>                            │
 │                                                           │
 │   3. Assemble (shell, zero LLM context):                   │
 │   cat <output-dir>/head.html \                             │
@@ -1573,7 +1242,7 @@ Pipeline B has an inherent limitation: the final agent (B4c) reads pre-written s
 **What the human operator should spot-check**:
 - Key numbers, names, and claims against the original text
 - Section coverage against paper structure
-- **UI checks**: base64 images render, lightbox opens/dismisses/navigates (Esc, ← →), mobile sidebar toggles, print layout correct, code copy works, KaTeX renders. See Pipeline A A4.8 items 9-25 for full list.
+- **UI checks**: base64 images render, lightbox opens/dismisses/navigates (Esc, ← →), mobile sidebar toggles, print layout correct, code copy works, KaTeX renders. See [Quality Checks](references/quality-checks.md) items 9-25 for full list.
 
 **What requires B3.5 review** (deeper per-section check):
 - Each section has ≥2 insight callouts (depth requirement)
@@ -1612,6 +1281,7 @@ grep -c 'paper_text.txt\|figures_b64.json\|section_.*\.html\|sections_raw\|assem
 
 ## Important Rules (Both Pipelines)
 
+- **🔴 模板优先规则 (Template Priority Rule) — HARD REQUIREMENT**: Agent 在任何情况下都不得手写 CSS 或 JavaScript。所有 CSS 的规范来源是 `assets/template.css`，所有 JavaScript 的规范来源是 `assets/template.js`。Pipeline A 在 A4.1 通过 Python 脚本内联；Pipeline B 在 B4c 通过读取文件后填入 `<!-- STYLESHEET -->` / `<!-- SCRIPT -->` 占位符。违反此规则意味着 CSS/JS 与模板产生偏差，属于必须修复的缺陷。
 - **Adapt, don't force-fit.** If the paper doesn't have design principles, don't create a principles section. Map content to the most natural component. If the chosen organization strategy would create an unnatural structure for this paper (e.g., question-driven on a pure position paper with no clear questions), fall back to paper-structure-aligned and note the reason in a comment.
 - **Be thorough but not exhaustive.** Cover the paper's key contributions deeply. Don't enumerate every minor detail.
 - **Prioritize insight over transcription.** Don't just copy the paper's text. Synthesize, connect ideas, highlight what matters.

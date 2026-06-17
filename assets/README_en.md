@@ -89,6 +89,19 @@ Academic PDF figures are vector graphics, not embedded raster images. The extrac
 
 Covers ~95% of CS papers. Text-only figures use a text-block cluster fallback. A quick pre-check scans for "Fig."/"Figure" captions before extraction.
 
+---
+## Template Architecture
+
+The template is split into three files. CSS and JS are extracted from `template.html` as canonical sources:
+
+| File | Role | Build-time handling |
+|------|------|---------------------|
+| `template.html` | HTML shell (`<!-- STYLESHEET -->` / `<!-- SCRIPT -->` placeholders) | Placeholders replaced with CSS/JS content |
+| `template.css` | **Canonical source** for all styles (including annotation system) | Pipeline A: inlined via Python in A4.1 |
+| `template.js` | **Canonical source** for all scripts (including annotation engine) | Pipeline B: read and embedded in B4c |
+
+**Hard rule**: Agents must NEVER hand-write CSS or JS. All styles and scripts must be read from `template.css` / `template.js`. The self-contained `template.html.bak` is available for standalone preview.
+
 ### Standalone use
 
 ```bash
@@ -99,6 +112,8 @@ python scripts/extract_figures.py paper.pdf --dpi 200 --save-images
 ---
 
 ## HTML Components
+
+Full catalog with HTML examples: `references/component-catalog.md`. Key components:
 
 | Component | Use |
 |-----------|-----|
@@ -135,7 +150,7 @@ After that, double-click the script to refresh the index anytime — no need to 
 python scripts/build_manifest.py /path/to/notes/dir
 ```
 
-See the Note Indexing section in `SKILL.md` for details.
+See the Note Indexing section in `SKILL.md` for details. Reference files (organization strategies, quality checks, sub-agent prompts, etc.) are in `references/`.
 
 ---
 
@@ -171,21 +186,31 @@ Reading note from "Towards Personalized LLM-Powered Agents" (29-page survey, 8 f
 
 ```
 paper-to-html-note/
-  SKILL.md
+  SKILL.md                     # Core workflow (~1350 lines after split)
   README.md
   LICENSE
   pyproject.toml
   assets/
     README_en.md
-    template.html              # Chinese template
-    template_en.html           # English template (structurally identical)
+    template.html              # HTML shell (with <!-- STYLESHEET --> / <!-- SCRIPT --> placeholders)
+    template.css               # Canonical CSS (agents must read from here, never hand-write)
+    template.js                # Canonical JS (includes annotation engine)
+    template.html.bak          # Complete self-contained template (standalone preview)
+    template_en.html           # English HTML shell
+    template_en.css            # English CSS
+    template_en.js             # English JS
+    template_en.html.bak       # English complete backup
     index-template.html        # Note index page template
     examples/
       screenshot.png
       toward_personalized_llm_powered_agents_reading_notes.html
   references/
-    component-catalog.md
-    design-system.md
+    component-catalog.md       # 24 HTML components with full templates
+    content-depth-rules.md     # Depth rules (inverted pyramid, insight types, two-layer)
+    design-system.md           # CSS design system
+    organization-strategies.md # All 4 organization strategies
+    quality-checks.md          # 29-item A4.8 quality checklist
+    subagent-prompt-reference.md # Pipeline B sub-agent prompt templates
   scripts/
     extract_figures.py
     assemble_figures.py
