@@ -103,7 +103,7 @@ Fields with empty `content` are automatically omitted from the rendered row.
 
 <!-- Warning / Tension -->
 <div class="callout warn">
-  <strong>⚠ Title</strong>
+  <strong>⚠️ Title</strong>
   <p>Body text explaining the warning or concern.</p>
 </div>
 
