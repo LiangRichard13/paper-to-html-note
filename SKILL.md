@@ -565,6 +565,15 @@ open(out, 'w', encoding='utf-8').write(html)
 "
 ```
 
+```bash
+# Step 3: Inline KaTeX so formulas render fully offline (no CDN dependency).
+# Replaces the template's jsdelivr CDN <link>/<script> tags with an inlined
+# copy (CSS + katex.min.js + auto-render + 20 fonts as data URIs, ~600KB).
+# Idempotent; no-ops on notes without KaTeX. Run again after all edits if
+# the template's KaTeX tags were re-introduced during section filling.
+python "<skill-dir>/scripts/inline_katex.py" "<output-dir>/<paper-short-name>_reading_notes.html"
+```
+
 ### A4.2 Fill metadata `<meta>` tags
 
 **CRITICAL**: Before filling section placeholders, fill the `<meta>` tags in `<head>`. These are the canonical source for paper metadata, consumed by `build_manifest.py` and `initMeta()` JS.
@@ -1162,6 +1171,11 @@ B4 spans **four execution boundaries**: inside the Workflow script → main agen
 │   ⚠️ The agent NEVER reads assembled_body.html with the   │
 │   Read tool — it would load multi-MB base64 into context. │
 │   All structural checks happen via shell commands.         │
+│                                                           │
+│   4. Inline KaTeX for offline formula rendering:           │
+│   python "<skill-dir>/scripts/inline_katex.py" \           │
+│       "<output-dir>/<paper>_reading_notes.html"            │
+│   (replaces CDN KaTeX tags with inlined copy incl. fonts)  │
 └────────────────────────────────────────────────────────┘
 
 **B4c bracket-placeholder discipline (CRITICAL — common Pipeline B failure mode)**
@@ -1282,6 +1296,7 @@ grep -c 'paper_text.txt\|figures_b64.json\|section_.*\.html\|sections_raw\|assem
 ## Important Rules (Both Pipelines)
 
 - **🔴 模板优先规则 (Template Priority Rule) — HARD REQUIREMENT**: Agent 在任何情况下都不得手写 CSS 或 JavaScript。所有 CSS 的规范来源是 `assets/template.css`，所有 JavaScript 的规范来源是 `assets/template.js`。Pipeline A 在 A4.1 通过 Python 脚本内联；Pipeline B 在 B4c 通过读取文件后填入 `<!-- STYLESHEET -->` / `<!-- SCRIPT -->` 占位符。违反此规则意味着 CSS/JS 与模板产生偏差，属于必须修复的缺陷。
+- **🔴 公式离线渲染规则**: 笔记绝不能依赖 CDN 加载 KaTeX。最终 HTML 生成后必须运行 `scripts/inline_katex.py`（Pipeline A 在 A4.1 Step 3；Pipeline B 在 B4 第 4 步）把 KaTeX 与字体全部内联（资源来源 `assets/katex_inline.html`，无需网络）。质检时 `grep` 确认成品无 `cdn.jsdelivr.net/npm/katex` 残留；断网环境下公式必须正常渲染。
 - **Adapt, don't force-fit.** If the paper doesn't have design principles, don't create a principles section. Map content to the most natural component. If the chosen organization strategy would create an unnatural structure for this paper (e.g., question-driven on a pure position paper with no clear questions), fall back to paper-structure-aligned and note the reason in a comment.
 - **Be thorough but not exhaustive.** Cover the paper's key contributions deeply. Don't enumerate every minor detail.
 - **Prioritize insight over transcription.** Don't just copy the paper's text. Synthesize, connect ideas, highlight what matters.
